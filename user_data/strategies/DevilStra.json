@@ -1,0 +1,29 @@
+{
+  "strategy_name": "DevilStra",
+  "params": {
+    "trailing": {
+      "trailing_stop": false,
+      "trailing_stop_positive": null,
+      "trailing_stop_positive_offset": 0.0,
+      "trailing_only_offset_is_reached": false
+    },
+    "buy": {
+      "buy_spell": "La,Cu,Pa,Lu,Ra,De,Pa,Lu,Cu,La,De,Si,Pa,Zi,Cu,Cu,Ra,Zi,De,Pa,Ra,Cu,Zi,De,Zi,Gu,Si,Si,Si,Pa,De,La,Si,Pa,Si,Pa,Ra,Pa,Lu,Pa,La,Ra,La,Gu,De,Gu,Zi,Lu,Cu,La,Zi,Ra,Zi,La,Lu,Gu,Zi,De,Lu,Cu,Cu,De,Lu,Lu,Lu,La,Lu,De,Zi,Lu,Pa,Ra,Cu,Si,La,La,Gu,De,Si,Cu,Si,Si,Pa,Ra,Si,Cu,La,La,Si,Gu,Zi,Zi,Ra,Gu,Cu,Ra,Zi,Cu,Pa,Gu,Cu,Cu,Lu,Cu,Lu,Ra,Cu,Cu,Gu,Lu,Lu,Si,De,Pa,Gu,Pa,Si,La,Gu,Lu,De,Ra,Si,Gu,Si,Lu,Gu,La,Pa,De,Gu,Pa,Cu,Zi,Cu,Si,Gu,Zi,La,De,Si,Pa,Gu,La,Si,Gu,De,Gu,Pa,Gu,Zi,Ra,Pa,Gu,Zi,Zi,Zi,Si,Cu,Pa,De,Lu,Ra,Cu,Gu,Ra,Pa,Lu,Gu,De,Ra,La,De,Lu,Lu,Cu,La,Pa,De,Ra,Gu,Lu,Gu,Ra,Zi,Si,Ra,La,Zi,Lu,Si,Gu,Lu,Pa,De,De,La,Pa,La,La,Pa,De,Pa,La,Ra,Zi,Ra,La,Zi,La,La,Zi,La,Pa,Lu,Cu,La,Zi,Cu,Cu,Zi,La,Zi,La,Lu,Gu,De,Lu,La,Gu,La,Ra,Ra,Zi,Lu,Gu,Gu,Gu,Si,Si,La,Pa,Zi,Gu,Lu,La,Si,Pa,Lu,La,Lu,Lu,Cu,Cu,Si,Cu,De,Gu,Ra,Lu,Cu,Ra,Lu,Gu,Zi,Zi,Gu,La,Cu"
+    },
+    "sell": {
+      "sell_spell": "Si,De,Gu,Zi,Gu,Lu,Cu,Lu,Cu,De,Cu,Zi,Ra,De,Cu,Si,Zi,Ra,Cu,Cu,Gu,Zi,Cu,De,Pa,Ra,Gu,Ra,Lu,Lu,Si,Lu,De,De,Gu,La,Lu,Pa,Zi,Cu,Gu,De,La,Lu,Cu,Pa,Ra,Lu,Gu,Ra,Zi,La,Zi,Zi,Cu,Ra,Zi,Cu,Lu,De,Pa,Gu,Cu,Ra,La,Ra,La,Zi,Cu,Zi,Gu,De,La,Ra,Cu,Cu,Gu,La,Zi,Ra,Pa,Ra,Pa,Lu,Lu,Gu,Zi,Cu,Ra,Pa,La,Gu,Ra,Pa,Zi,Lu,Pa,De,Si,Gu,Lu,Si,Ra,Cu,La,Cu,Gu,Pa,De,De,Gu,Pa,Si,Zi,De,La,Gu,Zi,De,La,De,Pa,Pa,Si,Gu,Gu,Cu,Cu,Lu,Ra,Ra,Ra,Cu,De,Pa,Zi,Ra,De,Lu,Gu,Si,La,Si,Zi,Pa,Ra,Cu,Pa,Lu,Ra,Cu,Ra,Zi,Ra,Ra,Si,La,Lu,Pa,De,La,Gu,Lu,Pa,Si,Zi,La,Pa,Si,Cu,Ra,De,Zi,Lu,Cu,Ra,Pa,Pa,Zi,Zi,La,La,Lu,Ra,La,Gu,Si,La,Zi,De,Cu,De,La,Ra,La,Pa,De,Zi,Lu,Zi,Lu,De,Ra,Gu,Cu,De,Zi,De,Cu,De,De,Zi,De,Cu,De,De,Pa,Si,Ra,Zi,Lu,Lu,De,La,Ra,Si,Gu,Zi,Zi,De,Cu,Cu,Lu,Ra,Lu,Ra,De,Gu,Gu,Pa,Pa,Cu,Si,Pa,De,De,De,De,Gu,Pa,De,Ra,Cu,Zi,Zi,Lu,Si,Gu,Gu,Si,Zi,Zi,Lu,Pa,Si,Gu,Ra,Zi,Ra"
+    },
+    "protection": {},
+    "roi": {
+      "0": 0.089,
+      "57": 0.059,
+      "192": 0.03,
+      "503": 0
+    },
+    "stoploss": {
+      "stoploss": -0.301
+    }
+  },
+  "ft_stratparam_v": 1,
+  "export_time": "2021-08-18 17:03:06.329629+00:00"
+}

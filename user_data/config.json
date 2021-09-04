@@ -1,0 +1,103 @@
+{
+  "max_open_trades": 1,
+  "stake_currency": "USDT",
+  "stake_amount": "unlimited",
+  "tradable_balance_ratio": 0.99,
+  "fiat_display_currency": "USD",
+  "timeframe": "30m",
+  "dry_run": true,
+  "cancel_open_orders_on_exit": false,
+  "unfilledtimeout": {
+    "buy": 10,
+    "sell": 30,
+    "unit": "minutes"
+  },
+  "order_types": {
+    "buy": "market",
+    "sell": "market",
+    "emergencysell": "market",
+    "forcebuy": "market",
+    "forcesell": "market",
+    "stoploss": "market",
+    "stoploss_on_exchange": true,
+    "stoploss_on_exchange_interval": 60
+  },
+  "bid_strategy": {
+    "price_side": "ask",
+    "ask_last_balance": 0.0,
+    "use_order_book": true,
+    "order_book_top": 1,
+    "check_depth_of_market": {
+      "enabled": false,
+      "bids_to_ask_delta": 1
+    }
+  },
+  "ask_strategy": {
+    "price_side": "bid",
+    "use_order_book": true,
+    "order_book_top": 1,
+    "use_sell_signal": true
+  },
+  "exchange": {
+    "name": "binance",
+    "key": "s5fwBtolfHr9CMKiDW1ifZPtzf2iBo6hEC8k2teTFhRYPVuvSktSChLHusZMYwJa",
+    "secret": "N8bNO3tHWwR5wsnwkGB1taLN2wCaN8coTv3MviDZ3vFYm8cbEJO1E96kPkpKmGKY",
+    "ccxt_config": { "enableRateLimit": true },
+    "ccxt_async_config": {
+      "enableRateLimit": true,
+      "rateLimit": 200
+    },
+    "pair_whitelist": ["ETH/USDT"],
+    "pair_blacklist": [
+      "BNB/BTC",
+      "BNB/BUSD",
+      "BNB/ETH",
+      "BNB/EUR",
+      "BNB/NGN",
+      "BNB/PAX",
+      "BNB/RUB",
+      "BNB/TRY",
+      "BNB/TUSD",
+      "BNB/USDC",
+      "BNB/USDS",
+      "BNB/USDT"
+    ]
+  },
+  "pairlists": [{ "method": "StaticPairList" }],
+  "edge": {
+    "enabled": false,
+    "process_throttle_secs": 3600,
+    "calculate_since_number_of_days": 7,
+    "allowed_risk": 0.01,
+    "stoploss_range_min": -0.01,
+    "stoploss_range_max": -0.1,
+    "stoploss_range_step": -0.01,
+    "minimum_winrate": 0.6,
+    "minimum_expectancy": 0.2,
+    "min_trade_number": 10,
+    "max_trade_duration_minute": 1440,
+    "remove_pumps": false
+  },
+  "telegram": {
+    "enabled": true,
+    "token": "1987950481:AAFOlLKKWLMJncE7Ok1V13a5UjL796Yz-Ig",
+    "chat_id": "1796075906"
+  },
+  "api_server": {
+    "enabled": true,
+    "listen_ip_address": "127.0.0.1",
+    "listen_port": 8080,
+    "verbosity": "error",
+    "enable_openapi": false,
+    "jwt_secret_key": "c3ab710dd262348e539ab0d134d730f8bb9c416f4dd23a8a363894b34bf79919",
+    "CORS_origins": [],
+    "username": "ankur",
+    "password": "ankur"
+  },
+  "bot_name": "freqtrade",
+  "initial_state": "running",
+  "forcebuy_enable": true,
+  "internals": {
+    "process_throttle_secs": 5
+  }
+}

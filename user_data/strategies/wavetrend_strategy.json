@@ -1,0 +1,31 @@
+{
+  "strategy_name": "WavetrendStrategy",
+  "params": {
+    "trailing": {
+      "trailing_stop": false,
+      "trailing_stop_positive": null,
+      "trailing_stop_positive_offset": 0.0,
+      "trailing_only_offset_is_reached": false
+    },
+    "buy": {
+      "wt_oversold_l1": -72.13419901087872,
+      "wt_oversold_l2": -51.461655799439164
+    },
+    "sell": {
+      "wt_overbought_l1": 78.78404093084724,
+      "wt_overbought_l2": 84.88376712263852
+    },
+    "protection": {},
+    "roi": {
+      "0": 0.382,
+      "116": 0.123,
+      "200": 0.018,
+      "555": 0
+    },
+    "stoploss": {
+      "stoploss": -0.124
+    }
+  },
+  "ft_stratparam_v": 1,
+  "export_time": "2021-08-17 07:57:05.376134+00:00"
+}

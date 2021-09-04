@@ -1,14 +1,17 @@
 # Freqtrade rules
-config*.json
 *.sqlite
 logfile.txt
-user_data/*
-!user_data/strategy/sample_strategy.py
+!user_data/*
 !user_data/notebooks
-user_data/notebooks/*
+user_data/backtest_results
+user_data/hyperopt_results
+user_data/logs
+user_data/plot
+user_data/data
 freqtrade-plot.html
 freqtrade-profit-plot.html
 freqtrade/rpc/api_server/ui/*
+data.csv
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

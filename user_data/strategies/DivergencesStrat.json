@@ -1,0 +1,26 @@
+{
+  "strategy_name": "DivStrat",
+  "params": {
+    "roi": {
+      "0": 100
+    },
+    "stoploss": {
+      "stoploss": -0.004
+    },
+    "trailing": {
+      "trailing_stop": false,
+      "trailing_stop_positive": null,
+      "trailing_stop_positive_offset": 0.0,
+      "trailing_only_offset_is_reached": false
+    },
+    "buy": {
+      "buy_flag": 329,
+      "minsignals": 0
+    },
+    "sell": {
+      "sell_flag": 265
+    }
+  },
+  "ft_stratparam_v": 1,
+  "export_time": "2021-09-04 09:49:13.156382+00:00"
+}

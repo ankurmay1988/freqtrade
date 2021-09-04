@@ -1,0 +1,28 @@
+{
+  "strategy_name": "MC2Strategy",
+  "params": {
+    "roi": {
+      "0": 999
+    },
+    "trailing": {
+      "trailing_stop": false,
+      "trailing_stop_positive": null,
+      "trailing_stop_positive_offset": 0.0,
+      "trailing_only_offset_is_reached": false
+    },
+    "buy": {
+      "mfi_level": -2,
+      "vwap_level": -20,
+      "wt_oversold_l1": -60
+    },
+    "sell": {
+      "wt_overbought_l1": 75
+    },
+    "protection": {},
+    "stoploss": {
+      "stoploss": -0.02
+    }
+  },
+  "ft_stratparam_v": 1,
+  "export_time": "2021-08-19 13:57:59.769579+00:00"
+}

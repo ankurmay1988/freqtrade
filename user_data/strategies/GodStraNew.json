@@ -1,0 +1,51 @@
+{
+  "strategy_name": "GodStraNew",
+  "params": {
+    "stoploss": {
+      "stoploss": -0.195
+    },
+    "trailing": {
+      "trailing_stop": false,
+      "trailing_stop_positive": null,
+      "trailing_stop_positive_offset": 0.0,
+      "trailing_only_offset_is_reached": false
+    },
+    "buy": {
+      "buy_crossed_indicator0": "CDLHANGINGMAN-6",
+      "buy_crossed_indicator1": "CDLLONGLEGGEDDOJI-12",
+      "buy_crossed_indicator2": "MACD-2-50",
+      "buy_indicator0": "CDLGRAVESTONEDOJI-6",
+      "buy_indicator1": "BBANDS-0-55",
+      "buy_indicator2": "MACDEXT-2-50",
+      "buy_operator0": "<",
+      "buy_operator1": "/>R",
+      "buy_operator2": "CB",
+      "buy_real_num0": 0.4,
+      "buy_real_num1": 0.2,
+      "buy_real_num2": 0.3
+    },
+    "sell": {
+      "sell_crossed_indicator0": "MACD-2-5",
+      "sell_crossed_indicator1": "CMO-15",
+      "sell_crossed_indicator2": "TSF-110",
+      "sell_indicator0": "CDLSTALLEDPATTERN-50",
+      "sell_indicator1": "CDLMATHOLD-110",
+      "sell_indicator2": "MA-55",
+      "sell_operator0": "<",
+      "sell_operator1": "DT",
+      "sell_operator2": ">R",
+      "sell_real_num0": 0.2,
+      "sell_real_num1": 0.9,
+      "sell_real_num2": 0.1
+    },
+    "protection": {},
+    "roi": {
+      "0": 0.14200000000000002,
+      "78": 0.096,
+      "146": 0.044,
+      "308": 0
+    }
+  },
+  "ft_stratparam_v": 1,
+  "export_time": "2021-08-18 17:34:04.001343+00:00"
+}

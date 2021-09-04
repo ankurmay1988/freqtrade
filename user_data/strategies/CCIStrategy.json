@@ -1,0 +1,25 @@
+{
+  "strategy_name": "CCIStrategy",
+  "params": {
+    "trailing": {
+      "trailing_stop": false,
+      "trailing_stop_positive": null,
+      "trailing_stop_positive_offset": 0.0,
+      "trailing_only_offset_is_reached": false
+    },
+    "buy": {},
+    "sell": {},
+    "protection": {},
+    "roi": {
+      "0": 0.14400000000000002,
+      "110": 0.046,
+      "257": 0.027,
+      "604": 0
+    },
+    "stoploss": {
+      "stoploss": -0.304
+    }
+  },
+  "ft_stratparam_v": 1,
+  "export_time": "2021-08-18 17:55:35.349179+00:00"
+}
