@@ -225,7 +225,7 @@ class DivStrat(IStrategy):
         # dataframe['ha_green'] = dataframe['ha_open'] < dataframe['ha_close']
         # dataframe['ha_opencandle'] = (dataframe['ha_open'] == dataframe['ha_high']) | (dataframe['ha_open'] == dataframe['ha_low'])
 
-        dataframe.to_csv('/disk/freqtrade/data.csv')
+        # dataframe.to_csv('/disk/freqtrade/data.csv')
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
