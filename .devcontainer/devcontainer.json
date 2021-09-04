@@ -13,11 +13,9 @@
     ],
     // Uncomment to connect as a non-root user if you've added one. See https://aka.ms/vscode-remote/containers/non-root.
     "remoteUser": "ftuser",
-
-    "postCreateCommand": "freqtrade create-userdir --userdir user_data/",
-
-    "workspaceFolder": "/freqtrade/",
-
+    // "postCreateCommand": "freqtrade create-userdir --userdir user_data/",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind,consistency=consistent",
+    "workspaceFolder": "/workspace",
     "settings": {
         "terminal.integrated.shell.linux": "/bin/bash",
         "editor.insertSpaces": true,
@@ -27,7 +25,6 @@
         },
         "python.pythonPath": "/usr/local/bin/python",
     },
-
     // Add the IDs of extensions you want installed when the container is created.
     "extensions": [
         "ms-python.python",

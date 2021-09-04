@@ -1,4 +1,4 @@
-FROM freqtradeorg/freqtrade:develop
+FROM freqtradeorg/freqtrade:develop_plot
 
 # Switch user to root if you must install something from apt
 # Don't forget to switch the user back below!
@@ -6,5 +6,7 @@ FROM freqtradeorg/freqtrade:develop
 
 # The below dependency - pyti - serves as an example. Please use whatever you need!
 RUN pip install --user pyti
+RUN pip install --user ta
+RUN pip install --user scikit-optimize
 
 # USER ftuser

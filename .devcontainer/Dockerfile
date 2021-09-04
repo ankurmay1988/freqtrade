@@ -16,6 +16,7 @@ RUN apt-get update \
 USER ftuser
 
 RUN pip install --user autopep8 -r docs/requirements-docs.txt -r requirements-dev.txt --no-cache-dir
+RUN pip install --user pandas-ta --no-cache-dir
 
 # Empty the ENTRYPOINT to allow all commands
 ENTRYPOINT []
