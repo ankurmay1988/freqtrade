@@ -3,41 +3,19 @@
 # isort: skip_file
 # --- Do not remove these libs ---
 
-# --------- Strategy -----------
-# Price < EMA200 (Bearish Trend):
-# - (Buy)
-#     * +ve divergence count >= 2
-#     * Exclude MFI divergences from count
-# - (Sell)
-#     * -ve divergence count >= 1
-#     * include all divergences
-# ------------------------------
-# Price > EMA200 (Bullish Trend):
-# - (Buy)
-#     * +ve divergence count >= 1
-# - (Sell)
-#     * -ve divergence count >= 2
-
 from datetime import timedelta
-from freqtrade.enums import runmode
-from freqtrade.enums.runmode import RunMode
-from customindicators.pivotpoint import PivotPoint
-from freqtrade.strategy.hyper import BooleanParameter
-from customindicators.DictObj import DictObj
 import numpy as np
 from numpy.core.numeric import cross  # noqa
 import pandas as pd  # noqa
 from pandas import DataFrame
 from pandas.core.series import Series
-from pandas_ta.utils import data
 
 from freqtrade.strategy import IStrategy, merge_informative_pair
-from freqtrade.strategy import CategoricalParameter, DecimalParameter, IntParameter, RealParameter
+from freqtrade.strategy import CategoricalParameter, DecimalParameter, IntParameter, RealParameter, BooleanParameter
 
 # --------------------------------
 # Add your lib to import here
 import pandas_ta as pta
-import freqtrade.vendor.qtpylib.indicators as qtpylib
 import customindicators as ci
 # This class is a sample. Feel free to customize it.
 
@@ -91,7 +69,7 @@ class DivStrat(IStrategy):
         'obv': 2 ** 8
     }
 
-    oscillators = DictObj(osc_flags)
+    oscillators = ci.DictObj(osc_flags)
     maxflagnum = (2 ** len(osc_flags)) - 1
 
     # Hyperoptable parameters
@@ -136,7 +114,7 @@ class DivStrat(IStrategy):
     ignore_roi_if_buy_signal = False
 
     # Number of candles the strategy requires before producing valid signals
-    startup_candle_count: int = 20
+    startup_candle_count: int = 200
 
     # Optional order time in force.
     order_time_in_force = {
@@ -196,6 +174,7 @@ class DivStrat(IStrategy):
         dataframe['cmf'] = dataframe.ta.cmf()
         dataframe['mfi'] = dataframe.ta.mfi(14)
         dataframe['uo'] = dataframe.ta.uo()
+        dataframe['ema200'] = dataframe.ta.ema(200)
 
         priceSource = dataframe['close'] if self.source.value == 'close' else dataframe['close']
 
@@ -225,25 +204,39 @@ class DivStrat(IStrategy):
         :param metadata: Additional information, like the currently traded pair
         :return: a Dataframe with all mandatory indicators for the strategies
         """
+        createPartialCandle = True & (self.dp.runmode.value in ["live", "dry_run"])
+
         if not self.dp is None:
             df1h = self.dp.get_pair_dataframe("ETH/USDT", '1h')
 
         # This logic detects early upward movement in 5m timeframe, so that PivotPoint
         # are identified early rather than waiting for 30m more.
-        goingUp = False
-        if (not self.dp is None) & (self.dp.runmode.value in ["live", "dry_run"]):
+        if (not self.dp is None) & createPartialCandle:
             df5m = self.dp.get_pair_dataframe("ETH/USDT", '5m')
             dfpartial = df5m.loc[df5m['date'] > dataframe.iloc[-1]['date']]
-            goingUp = (dfpartial.iloc[0]['close'] > dfpartial.iloc[0]['open']) & (
-                dfpartial.iloc[-1]['close'] > dataframe.iloc[-1]['close'])
-            if goingUp:
+            partial_open = dfpartial.iloc[0]['open']
+            partial_high = dfpartial['high'].max()
+            partial_low = dfpartial['low'].min()
+            partial_close = dfpartial.iloc[-1]['close']
+            partial_volume = dfpartial["volume"].mean()
+            dataframe = dataframe.append({
+                'date': dataframe.iloc[-1]['date'] + timedelta(minutes=30),
+                'open': partial_open,
+                'high': partial_high,
+                'low': partial_low,
+                'close': partial_close,
+                'volume': partial_volume
+            }, ignore_index=True)
+
+            if not df1h is None:
+                dfpartial = dataframe.loc[dataframe['date'] > df1h.iloc[-1]['date']]
                 partial_open = dfpartial.iloc[0]['open']
                 partial_high = dfpartial['high'].max()
                 partial_low = dfpartial['low'].min()
                 partial_close = dfpartial.iloc[-1]['close']
-                partial_volume = dfpartial["volume"].sum()
-                dataframe = dataframe.append({
-                    'date': dataframe.iloc[-1]['date'] + timedelta(minutes=30),
+                partial_volume = dfpartial["volume"].mean()
+                df1h = df1h.append({
+                    'date': df1h.iloc[-1]['date'] + timedelta(hours=1),
                     'open': partial_open,
                     'high': partial_high,
                     'low': partial_low,
@@ -251,26 +244,9 @@ class DivStrat(IStrategy):
                     'volume': partial_volume
                 }, ignore_index=True)
 
-                if not df1h is None:
-                    dfpartial = dataframe.loc[dataframe['date'] > df1h.iloc[-1]['date']]
-                    if goingUp:
-                        partial_open = dfpartial.iloc[0]['open']
-                        partial_high = dfpartial['high'].max()
-                        partial_low = dfpartial['low'].min()
-                        partial_close = dfpartial.iloc[-1]['close']
-                        partial_volume = dfpartial["volume"].sum()
-                        df1h = df1h.append({
-                            'date': df1h.iloc[-1]['date'] + timedelta(hours=1),
-                            'open': partial_open,
-                            'high': partial_high,
-                            'low': partial_low,
-                            'close': partial_close,
-                            'volume': partial_volume
-                        }, ignore_index=True)
-
         dataframe = self.calc_indicators(dataframe)
 
-        if goingUp & (self.dp.runmode.value in ["live", "dry_run"]):
+        if createPartialCandle:
             dataframe.drop(dataframe.tail(1).index, inplace=True)
 
         if not df1h is None:
@@ -289,8 +265,8 @@ class DivStrat(IStrategy):
 
         # # Graph object to plot and analyze divergence data
         graphData = DataFrame()
-
-        dataframe.to_csv('/disk/freqtrade/data.csv')
+        # if self.dp.runmode.value not in ["live", "dry_run"]:
+        #     dataframe.to_csv('/disk/freqtrade/data.csv')
         return dataframe
 
     def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
@@ -353,8 +329,9 @@ class DivStrat(IStrategy):
         else:
             buycondition = buycondition | cond_reg_1h
 
-        # When 1h chart show hidden bullish divergence that means trend will
-        # continue to be bullish so we can buy at this time also.
+        # When 1h chart show hidden bullish divergence and price is above the 200 ema
+        # that means trend will continue to be bullish so we can buy at this time also.
+        price_above_200ema = dataframe['close'] > dataframe['ema200']
         cond_1h = (dataframe['cci_hbull_1h'] & self.calccci) \
             | (dataframe['cmf_hbull_1h'] & self.calccmf) \
             | (dataframe['macd_hbull_1h'] & self.calcmacd) \
@@ -364,7 +341,7 @@ class DivStrat(IStrategy):
             | (dataframe['rsi_hbull_1h'] & self.calcrsi) \
             | (dataframe['stk_hbull_1h'] & self.calcstoc) \
             | (dataframe['uo_hbull_1h'] & self.calcuo)
-        buycondition = buycondition | cond_1h
+        buycondition = buycondition | (cond_1h & price_above_200ema)
 
         # If Bitcoin also shows bullish divergence then also we can buy
         if self.buy_useBTC.value:
