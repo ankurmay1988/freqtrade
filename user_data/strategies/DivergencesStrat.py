@@ -374,25 +374,26 @@ class DivStrat(IStrategy):
         """
         self.getOscFlags()
 
-        n_signals = np.where(dataframe['cci_rbear'] & self.calccci, 1, 0) + \
-            np.where(dataframe['cmf_rbear'] & self.calccmf, 1, 0) + \
-            np.where(dataframe['macd_rbear'] & self.calcmacd, 1, 0) + \
-            np.where(dataframe['mfi_rbear'] & self.calcmfi, 1, 0) + \
-            np.where(dataframe['mom_rbear'] & self.calcmom, 1, 0) + \
-            np.where(dataframe['obv_rbear'] & self.calcobv, 1, 0) + \
-            np.where(dataframe['rsi_rbear'] & self.calcrsi, 1, 0) + \
-            np.where(dataframe['stk_rbear'] & self.calcstoc, 1, 0) + \
-            np.where(dataframe['uo_rbear'] & self.calcuo, 1, 0)
+        # Using 1h timeframe is it supposed to be more accurate
+        n_signals = np.where(dataframe['cci_rbear_1h'] & self.calccci, 1, 0) + \
+            np.where(dataframe['cmf_rbear_1h'] & self.calccmf, 1, 0) + \
+            np.where(dataframe['macd_rbear_1h'] & self.calcmacd, 1, 0) + \
+            np.where(dataframe['mfi_rbear_1h'] & self.calcmfi, 1, 0) + \
+            np.where(dataframe['mom_rbear_1h'] & self.calcmom, 1, 0) + \
+            np.where(dataframe['obv_rbear_1h'] & self.calcobv, 1, 0) + \
+            np.where(dataframe['rsi_rbear_1h'] & self.calcrsi, 1, 0) + \
+            np.where(dataframe['stk_rbear_1h'] & self.calcstoc, 1, 0) + \
+            np.where(dataframe['uo_rbear_1h'] & self.calcuo, 1, 0)
 
-        cond = (dataframe['cci_rbear'] & self.sell_calccci) \
-            | (dataframe['cmf_rbear'] & self.sell_calccmf) \
-            | (dataframe['macd_rbear'] & self.sell_calcmacd) \
-            | (dataframe['mfi_rbear'] & self.sell_calcmfi) \
-            | (dataframe['mom_rbear'] & self.sell_calcmom) \
-            | (dataframe['obv_rbear'] & self.sell_calcobv) \
-            | (dataframe['rsi_rbear'] & self.sell_calcrsi) \
-            | (dataframe['stk_rbear'] & self.sell_calcstoc) \
-            | (dataframe['uo_rbear'] & self.sell_calcuo)
+        cond = (dataframe['cci_rbear_1h'] & self.sell_calccci) \
+            | (dataframe['cmf_rbear_1h'] & self.sell_calccmf) \
+            | (dataframe['macd_rbear_1h'] & self.sell_calcmacd) \
+            | (dataframe['mfi_rbear_1h'] & self.sell_calcmfi) \
+            | (dataframe['mom_rbear_1h'] & self.sell_calcmom) \
+            | (dataframe['obv_rbear_1h'] & self.sell_calcobv) \
+            | (dataframe['rsi_rbear_1h'] & self.sell_calcrsi) \
+            | (dataframe['stk_rbear_1h'] & self.sell_calcstoc) \
+            | (dataframe['uo_rbear_1h'] & self.sell_calcuo)
 
         if self.sell_minsignals.value > 0:
             sellcondition = cond & (n_signals > self.sell_minsignals.value)
