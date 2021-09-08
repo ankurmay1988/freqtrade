@@ -93,13 +93,12 @@ class DivStrat(IStrategy):
     sell_flag = IntParameter(default=maxflagnum, low=0, high=maxflagnum,
                              space='sell', load=True, optimize=True)
 
-    buy_minsignals = IntParameter(default=1, low=0, high=len(osc_flags),
-                                  space='buy', load=False, optimize=False)
+    buy_minsignals = IntParameter(default=4, low=0, high=len(osc_flags),
+                                  space='buy', load=True, optimize=False)
 
     sell_minsignals = IntParameter(default=0, low=0, high=len(osc_flags),
-                                   space='sell', load=False, optimize=False)
+                                   space='sell', load=True, optimize=False)
 
-    waitForConfirm = BooleanParameter(default=True, space='buy', load=False, optimize=False)
     buy_useBTC = BooleanParameter(default=False, space='buy', load=False, optimize=False)
 
     # Optimal timeframe for the strategy.
@@ -150,10 +149,9 @@ class DivStrat(IStrategy):
 
         # add other pairs if needed maybe BTC ?
         informative_pairs = [
-            ("ETH/USDT", "5m"),
             ("ETH/USDT", "30m"),
-            ("BTC/USDT", "30m"),
-            ("ETH/USDT", "1h")
+            ("ETH/USDT", "1h"),
+            ("BTC/USDT", "30m")
         ]
 
         return informative_pairs
@@ -178,7 +176,7 @@ class DivStrat(IStrategy):
 
         priceSource = dataframe['close'] if self.source.value == 'close' else dataframe['close']
 
-        pp = ci.PivotPoint().pivotpoints(priceSource, self.prd.value, self.prd.value, self.waitForConfirm.value)
+        pp = ci.PivotPoint().pivotpoints(priceSource, self.prd.value)
         ph = pd.Series(np.where(pp == 1, True, False))
         pl = pd.Series(np.where(pp == -1, True, False))
 
@@ -204,52 +202,11 @@ class DivStrat(IStrategy):
         :param metadata: Additional information, like the currently traded pair
         :return: a Dataframe with all mandatory indicators for the strategies
         """
-        createPartialCandle = True & (self.dp.runmode.value in ["live", "dry_run"])
-
-        if not self.dp is None:
-            df1h = self.dp.get_pair_dataframe("ETH/USDT", '1h')
-
-        # This logic detects early upward movement in 5m timeframe, so that PivotPoint
-        # are identified early rather than waiting for 30m more.
-        if (not self.dp is None) & createPartialCandle:
-            df5m = self.dp.get_pair_dataframe("ETH/USDT", '5m')
-            dfpartial = df5m.loc[df5m['date'] > dataframe.iloc[-1]['date']]
-            partial_open = dfpartial.iloc[0]['open']
-            partial_high = dfpartial['high'].max()
-            partial_low = dfpartial['low'].min()
-            partial_close = dfpartial.iloc[-1]['close']
-            partial_volume = dfpartial["volume"].mean()
-            dataframe = dataframe.append({
-                'date': dataframe.iloc[-1]['date'] + timedelta(minutes=30),
-                'open': partial_open,
-                'high': partial_high,
-                'low': partial_low,
-                'close': partial_close,
-                'volume': partial_volume
-            }, ignore_index=True)
-
-            if not df1h is None:
-                dfpartial = dataframe.loc[dataframe['date'] > df1h.iloc[-1]['date']]
-                partial_open = dfpartial.iloc[0]['open']
-                partial_high = dfpartial['high'].max()
-                partial_low = dfpartial['low'].min()
-                partial_close = dfpartial.iloc[-1]['close']
-                partial_volume = dfpartial["volume"].mean()
-                df1h = df1h.append({
-                    'date': df1h.iloc[-1]['date'] + timedelta(hours=1),
-                    'open': partial_open,
-                    'high': partial_high,
-                    'low': partial_low,
-                    'close': partial_close,
-                    'volume': partial_volume
-                }, ignore_index=True)
 
         dataframe = self.calc_indicators(dataframe)
 
-        if createPartialCandle:
-            dataframe.drop(dataframe.tail(1).index, inplace=True)
-
-        if not df1h is None:
+        if not self.dp is None:
+            df1h = self.dp.get_pair_dataframe("ETH/USDT", '1h')
             df1h = self.calc_indicators(df1h)
             dataframe = merge_informative_pair(dataframe, df1h, '30m', '1h', ffill=True)
 
@@ -375,6 +332,32 @@ class DivStrat(IStrategy):
         self.getOscFlags()
 
         # Using 1h timeframe is it supposed to be more accurate
+        n_signals = np.where(dataframe['cci_rbear'] & self.calccci, 1, 0) + \
+            np.where(dataframe['cmf_rbear'] & self.calccmf, 1, 0) + \
+            np.where(dataframe['macd_rbear'] & self.calcmacd, 1, 0) + \
+            np.where(dataframe['mfi_rbear'] & self.calcmfi, 1, 0) + \
+            np.where(dataframe['mom_rbear'] & self.calcmom, 1, 0) + \
+            np.where(dataframe['obv_rbear'] & self.calcobv, 1, 0) + \
+            np.where(dataframe['rsi_rbear'] & self.calcrsi, 1, 0) + \
+            np.where(dataframe['stk_rbear'] & self.calcstoc, 1, 0) + \
+            np.where(dataframe['uo_rbear'] & self.calcuo, 1, 0)
+
+        cond = (dataframe['cci_rbear'] & self.sell_calccci) \
+            | (dataframe['cmf_rbear'] & self.sell_calccmf) \
+            | (dataframe['macd_rbear'] & self.sell_calcmacd) \
+            | (dataframe['mfi_rbear'] & self.sell_calcmfi) \
+            | (dataframe['mom_rbear'] & self.sell_calcmom) \
+            | (dataframe['obv_rbear'] & self.sell_calcobv) \
+            | (dataframe['rsi_rbear'] & self.sell_calcrsi) \
+            | (dataframe['stk_rbear'] & self.sell_calcstoc) \
+            | (dataframe['uo_rbear'] & self.sell_calcuo)
+
+        if self.sell_minsignals.value > 0:
+            sellcondition = cond & (n_signals > self.sell_minsignals.value)
+        else:
+            sellcondition = cond
+
+        # Using 1h timeframe is it supposed to be more accurate
         n_signals = np.where(dataframe['cci_rbear_1h'] & self.calccci, 1, 0) + \
             np.where(dataframe['cmf_rbear_1h'] & self.calccmf, 1, 0) + \
             np.where(dataframe['macd_rbear_1h'] & self.calcmacd, 1, 0) + \
@@ -396,11 +379,21 @@ class DivStrat(IStrategy):
             | (dataframe['uo_rbear_1h'] & self.sell_calcuo)
 
         if self.sell_minsignals.value > 0:
-            sellcondition = cond & (n_signals > self.sell_minsignals.value)
+            sellcondition |= cond & (n_signals > self.sell_minsignals.value)
         else:
-            sellcondition = cond
+            sellcondition |= cond
 
-        cond_hidden = (dataframe['cci_hbear'] & self.sell_calccci) \
+        n_signals = np.where(dataframe['cci_hbear'] & self.calccci, 1, 0) + \
+            np.where(dataframe['cmf_hbear'] & self.calccmf, 1, 0) + \
+            np.where(dataframe['macd_hbear'] & self.calcmacd, 1, 0) + \
+            np.where(dataframe['mfi_hbear'] & self.calcmfi, 1, 0) + \
+            np.where(dataframe['mom_hbear'] & self.calcmom, 1, 0) + \
+            np.where(dataframe['obv_hbear'] & self.calcobv, 1, 0) + \
+            np.where(dataframe['rsi_hbear'] & self.calcrsi, 1, 0) + \
+            np.where(dataframe['stk_hbear'] & self.calcstoc, 1, 0) + \
+            np.where(dataframe['uo_hbear'] & self.calcuo, 1, 0)
+
+        cond = (dataframe['cci_hbear'] & self.sell_calccci) \
             | (dataframe['cmf_hbear'] & self.sell_calccmf) \
             | (dataframe['macd_hbear'] & self.sell_calcmacd) \
             | (dataframe['mfi_hbear'] & self.sell_calcmfi) \
@@ -410,7 +403,10 @@ class DivStrat(IStrategy):
             | (dataframe['stk_hbear'] & self.sell_calcstoc) \
             | (dataframe['uo_hbear'] & self.sell_calcuo)
 
-        sellcondition |= cond_hidden
+        if self.sell_minsignals.value > 0:
+            sellcondition |= cond & (n_signals > self.sell_minsignals.value)
+        else:
+            sellcondition |= cond
 
         dataframe.loc[
             (

@@ -5,7 +5,7 @@
       "0": 100
     },
     "stoploss": {
-      "stoploss": -0.015
+      "stoploss": -0.013
     },
     "trailing": {
       "trailing_stop": false,
@@ -16,15 +16,14 @@
     "buy": {
       "buy_flag": 383,
       "buy_minsignals": 1,
-      "buy_useBTC": false,
-      "waitForConfirm": true
+      "buy_useBTC": false
     },
     "sell": {
-      "sell_minsignals": 0,
-      "sell_flag": 3
+      "sell_minsignals": 1,
+      "sell_flag": 383
     },
     "protection": {}
   },
   "ft_stratparam_v": 1,
-  "export_time": "2021-09-06 11:26:46.167962+00:00"
+  "export_time": "2021-09-08 06:49:46.660366+00:00"
 }
