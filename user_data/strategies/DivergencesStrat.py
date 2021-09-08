@@ -22,20 +22,13 @@ import customindicators as ci
 
 class DivStrat(IStrategy):
     """
-    This is a sample strategy to inspire you.
-    More information in https://www.freqtrade.io/en/latest/strategy-customization/
+    https://www.freqtrade.io/en/latest/strategy-customization/
 
     You can:
         :return: a Dataframe with all mandatory indicators for the strategies
     - Rename the class name (Do not forget to update class_name)
     - Add any methods you want to build your strategy
     - Add any lib you need to build your strategy
-
-    You must keep:
-    - the lib in the section "Do not remove these libs"
-    - the methods: populate_indicators, populate_buy_trend, populate_sell_trend
-    You should keep:
-    - timeframe, minimal_roi, stoploss, trailing_*
     """
     # Strategy interface version - allow new iterations of the strategy interface.
     # Check the documentation or the Sample strategy to get the latest version.
@@ -43,7 +36,7 @@ class DivStrat(IStrategy):
 
     # Optimal stoploss designed for the strategy.
     # This attribute will be overridden if the config file contains "stoploss".
-    stoploss = -0.02
+    stoploss = -0.013
 
     # Trailing stop:
     trailing_stop = False  # value loaded from strategy
@@ -77,14 +70,8 @@ class DivStrat(IStrategy):
     prd = IntParameter(default=5, low=1, high=50)
     # Source for Pivot Points
     source = CategoricalParameter(default="close", categories=["close", "high/low"])
-    # Divergence Type
-    searchdiv = CategoricalParameter(default="Regular", categories=[
-                                     "Regular", "Hidden", "Regular/Hidden"])
     # Maximum Pivot Points to Check
     maxpp = IntParameter(default=10, low=1, high=20)
-
-    # Maximum Bars to Check
-    maxbars = IntParameter(default=200, low=1, high=300)
 
     # Buy osc signal flags
     buy_flag = IntParameter(default=maxflagnum, low=0, high=maxflagnum,
@@ -93,16 +80,17 @@ class DivStrat(IStrategy):
     sell_flag = IntParameter(default=maxflagnum, low=0, high=maxflagnum,
                              space='sell', load=True, optimize=True)
 
-    buy_minsignals = IntParameter(default=4, low=0, high=len(osc_flags),
+    buy_minsignals = IntParameter(default=1, low=0, high=len(osc_flags),
                                   space='buy', load=True, optimize=False)
 
-    sell_minsignals = IntParameter(default=0, low=0, high=len(osc_flags),
+    sell_minsignals = IntParameter(default=1, low=0, high=len(osc_flags),
                                    space='sell', load=True, optimize=False)
 
     buy_useBTC = BooleanParameter(default=False, space='buy', load=False, optimize=False)
 
     # Optimal timeframe for the strategy.
     timeframe = '30m'
+    timeframe_above = '1h'
 
     # Run "populate_indicators()" only for new candle.
     process_only_new_candles = False
@@ -142,16 +130,14 @@ class DivStrat(IStrategy):
                             ]
         """
         # get access to all pairs available in whitelist.
-        # pairs = self.dp.current_whitelist()
+        pairs = self.dp.current_whitelist()
 
         # Assign tf to each pair so they can be downloaded and cached for strategy.
-        # informative_pairs = [(pair, '1h') for pair in pairs]
+        informative_pairs = [(pair, self.timeframe_above) for pair in pairs]
 
         # add other pairs if needed maybe BTC ?
-        informative_pairs = [
-            ("ETH/USDT", "30m"),
-            ("ETH/USDT", "1h"),
-            ("BTC/USDT", "30m")
+        informative_pairs += [
+            ("BTC/USDT", self.timeframe)
         ]
 
         return informative_pairs
@@ -206,12 +192,13 @@ class DivStrat(IStrategy):
         dataframe = self.calc_indicators(dataframe)
 
         if not self.dp is None:
-            df1h = self.dp.get_pair_dataframe("ETH/USDT", '1h')
+            df1h = self.dp.get_pair_dataframe("ETH/USDT", self.timeframe_above)
             df1h = self.calc_indicators(df1h)
-            dataframe = merge_informative_pair(dataframe, df1h, '30m', '1h', ffill=True)
+            dataframe = merge_informative_pair(
+                dataframe, df1h, self.timeframe, self.timeframe_above, ffill=True)
 
         if (not self.dp is None) & (self.buy_useBTC.value):
-            dfbtc = self.dp.get_pair_dataframe("BTC/USDT", '30m')
+            dfbtc = self.dp.get_pair_dataframe("BTC/USDT", self.timeframe)
             dfbtc = self.calc_indicators(dfbtc)
             indicatorList = list(self.osc_flags.keys())
             for ind in indicatorList:
@@ -234,6 +221,8 @@ class DivStrat(IStrategy):
         :return: DataFrame with buy column
         """
         self.getOscFlags()
+
+        price_above_200ema = dataframe['close'] > dataframe['ema200']
 
         n_signals = np.where(dataframe['cci_rbull'] & self.calccci, 1, 0) + \
             np.where(dataframe['cmf_rbull'] & self.calccmf, 1, 0) + \
@@ -261,25 +250,25 @@ class DivStrat(IStrategy):
             buycondition = cond
 
         # When 1h chart show regular bullish divergence
-        n_signals_1h = np.where(dataframe['cci_rbull_1h'] & self.calccci, 1, 0) + \
-            np.where(dataframe['cmf_rbull_1h'] & self.calccmf, 1, 0) + \
-            np.where(dataframe['macd_rbull_1h'] & self.calcmacd, 1, 0) + \
-            np.where(dataframe['mfi_rbull_1h'] & self.calcmfi, 1, 0) + \
-            np.where(dataframe['mom_rbull_1h'] & self.calcmom, 1, 0) + \
-            np.where(dataframe['obv_rbull_1h'] & self.calcobv, 1, 0) + \
-            np.where(dataframe['rsi_rbull_1h'] & self.calcrsi, 1, 0) + \
-            np.where(dataframe['stk_rbull_1h'] & self.calcstoc, 1, 0) + \
-            np.where(dataframe['uo_rbull_1h'] & self.calcuo, 1, 0)
+        n_signals_1h = np.where(dataframe['cci_rbull_{}'.format(self.timeframe_above)] & self.calccci, 1, 0) + \
+            np.where(dataframe['cmf_rbull_{}'.format(self.timeframe_above)] & self.calccmf, 1, 0) + \
+            np.where(dataframe['macd_rbull_{}'.format(self.timeframe_above)] & self.calcmacd, 1, 0) + \
+            np.where(dataframe['mfi_rbull_{}'.format(self.timeframe_above)] & self.calcmfi, 1, 0) + \
+            np.where(dataframe['mom_rbull_{}'.format(self.timeframe_above)] & self.calcmom, 1, 0) + \
+            np.where(dataframe['obv_rbull_{}'.format(self.timeframe_above)] & self.calcobv, 1, 0) + \
+            np.where(dataframe['rsi_rbull_{}'.format(self.timeframe_above)] & self.calcrsi, 1, 0) + \
+            np.where(dataframe['stk_rbull_{}'.format(self.timeframe_above)] & self.calcstoc, 1, 0) + \
+            np.where(dataframe['uo_rbull_{}'.format(self.timeframe_above)] & self.calcuo, 1, 0)
 
-        cond_reg_1h = (dataframe['cci_rbull_1h'] & self.calccci) \
-            | (dataframe['cmf_rbull_1h'] & self.calccmf) \
-            | (dataframe['macd_rbull_1h'] & self.calcmacd) \
-            | (dataframe['mfi_rbull_1h'] & self.calcmfi) \
-            | (dataframe['mom_rbull_1h'] & self.calcmom) \
-            | (dataframe['obv_rbull_1h'] & self.calcobv) \
-            | (dataframe['rsi_rbull_1h'] & self.calcrsi) \
-            | (dataframe['stk_rbull_1h'] & self.calcstoc) \
-            | (dataframe['uo_rbull_1h'] & self.calcuo)
+        cond_reg_1h = (dataframe['cci_rbull_{}'.format(self.timeframe_above)] & self.calccci) \
+            | (dataframe['cmf_rbull_{}'.format(self.timeframe_above)] & self.calccmf) \
+            | (dataframe['macd_rbull_{}'.format(self.timeframe_above)] & self.calcmacd) \
+            | (dataframe['mfi_rbull_{}'.format(self.timeframe_above)] & self.calcmfi) \
+            | (dataframe['mom_rbull_{}'.format(self.timeframe_above)] & self.calcmom) \
+            | (dataframe['obv_rbull_{}'.format(self.timeframe_above)] & self.calcobv) \
+            | (dataframe['rsi_rbull_{}'.format(self.timeframe_above)] & self.calcrsi) \
+            | (dataframe['stk_rbull_{}'.format(self.timeframe_above)] & self.calcstoc) \
+            | (dataframe['uo_rbull_{}'.format(self.timeframe_above)] & self.calcuo)
 
         if self.buy_minsignals.value > 0:
             buycondition = buycondition | (cond_reg_1h & (n_signals_1h > self.buy_minsignals.value))
@@ -288,17 +277,31 @@ class DivStrat(IStrategy):
 
         # When 1h chart show hidden bullish divergence and price is above the 200 ema
         # that means trend will continue to be bullish so we can buy at this time also.
-        price_above_200ema = dataframe['close'] > dataframe['ema200']
-        cond_1h = (dataframe['cci_hbull_1h'] & self.calccci) \
-            | (dataframe['cmf_hbull_1h'] & self.calccmf) \
-            | (dataframe['macd_hbull_1h'] & self.calcmacd) \
-            | (dataframe['mfi_hbull_1h'] & self.calcmfi) \
-            | (dataframe['mom_hbull_1h'] & self.calcmom) \
-            | (dataframe['obv_hbull_1h'] & self.calcobv) \
-            | (dataframe['rsi_hbull_1h'] & self.calcrsi) \
-            | (dataframe['stk_hbull_1h'] & self.calcstoc) \
-            | (dataframe['uo_hbull_1h'] & self.calcuo)
-        buycondition = buycondition | (cond_1h & price_above_200ema)
+        n_signals_1h = np.where(dataframe['cci_hbull_{}'.format(self.timeframe_above)] & self.calccci, 1, 0) + \
+            np.where(dataframe['cmf_hbull_{}'.format(self.timeframe_above)] & self.calccmf, 1, 0) + \
+            np.where(dataframe['macd_hbull_{}'.format(self.timeframe_above)] & self.calcmacd, 1, 0) + \
+            np.where(dataframe['mfi_hbull_{}'.format(self.timeframe_above)] & self.calcmfi, 1, 0) + \
+            np.where(dataframe['mom_hbull_{}'.format(self.timeframe_above)] & self.calcmom, 1, 0) + \
+            np.where(dataframe['obv_hbull_{}'.format(self.timeframe_above)] & self.calcobv, 1, 0) + \
+            np.where(dataframe['rsi_hbull_{}'.format(self.timeframe_above)] & self.calcrsi, 1, 0) + \
+            np.where(dataframe['stk_hbull_{}'.format(self.timeframe_above)] & self.calcstoc, 1, 0) + \
+            np.where(dataframe['uo_hbull_{}'.format(self.timeframe_above)] & self.calcuo, 1, 0)
+
+        cond_1h = (dataframe['cci_hbull_{}'.format(self.timeframe_above)] & self.calccci) \
+            | (dataframe['cmf_hbull_{}'.format(self.timeframe_above)] & self.calccmf) \
+            | (dataframe['macd_hbull_{}'.format(self.timeframe_above)] & self.calcmacd) \
+            | (dataframe['mfi_hbull_{}'.format(self.timeframe_above)] & self.calcmfi) \
+            | (dataframe['mom_hbull_{}'.format(self.timeframe_above)] & self.calcmom) \
+            | (dataframe['obv_hbull_{}'.format(self.timeframe_above)] & self.calcobv) \
+            | (dataframe['rsi_hbull_{}'.format(self.timeframe_above)] & self.calcrsi) \
+            | (dataframe['stk_hbull_{}'.format(self.timeframe_above)] & self.calcstoc) \
+            | (dataframe['uo_hbull_{}'.format(self.timeframe_above)] & self.calcuo)
+
+        if self.buy_minsignals.value > 0:
+            buycondition |= ((cond_1h & price_above_200ema) & (
+                n_signals_1h > self.buy_minsignals.value))
+        else:
+            buycondition |= (cond_1h & price_above_200ema)
 
         # If Bitcoin also shows bullish divergence then also we can buy
         if self.buy_useBTC.value:
@@ -358,25 +361,25 @@ class DivStrat(IStrategy):
             sellcondition = cond
 
         # Using 1h timeframe is it supposed to be more accurate
-        n_signals = np.where(dataframe['cci_rbear_1h'] & self.calccci, 1, 0) + \
-            np.where(dataframe['cmf_rbear_1h'] & self.calccmf, 1, 0) + \
-            np.where(dataframe['macd_rbear_1h'] & self.calcmacd, 1, 0) + \
-            np.where(dataframe['mfi_rbear_1h'] & self.calcmfi, 1, 0) + \
-            np.where(dataframe['mom_rbear_1h'] & self.calcmom, 1, 0) + \
-            np.where(dataframe['obv_rbear_1h'] & self.calcobv, 1, 0) + \
-            np.where(dataframe['rsi_rbear_1h'] & self.calcrsi, 1, 0) + \
-            np.where(dataframe['stk_rbear_1h'] & self.calcstoc, 1, 0) + \
-            np.where(dataframe['uo_rbear_1h'] & self.calcuo, 1, 0)
+        n_signals = np.where(dataframe['cci_rbear_{}'.format(self.timeframe_above)] & self.calccci, 1, 0) + \
+            np.where(dataframe['cmf_rbear_{}'.format(self.timeframe_above)] & self.calccmf, 1, 0) + \
+            np.where(dataframe['macd_rbear_{}'.format(self.timeframe_above)] & self.calcmacd, 1, 0) + \
+            np.where(dataframe['mfi_rbear_{}'.format(self.timeframe_above)] & self.calcmfi, 1, 0) + \
+            np.where(dataframe['mom_rbear_{}'.format(self.timeframe_above)] & self.calcmom, 1, 0) + \
+            np.where(dataframe['obv_rbear_{}'.format(self.timeframe_above)] & self.calcobv, 1, 0) + \
+            np.where(dataframe['rsi_rbear_{}'.format(self.timeframe_above)] & self.calcrsi, 1, 0) + \
+            np.where(dataframe['stk_rbear_{}'.format(self.timeframe_above)] & self.calcstoc, 1, 0) + \
+            np.where(dataframe['uo_rbear_{}'.format(self.timeframe_above)] & self.calcuo, 1, 0)
 
-        cond = (dataframe['cci_rbear_1h'] & self.sell_calccci) \
-            | (dataframe['cmf_rbear_1h'] & self.sell_calccmf) \
-            | (dataframe['macd_rbear_1h'] & self.sell_calcmacd) \
-            | (dataframe['mfi_rbear_1h'] & self.sell_calcmfi) \
-            | (dataframe['mom_rbear_1h'] & self.sell_calcmom) \
-            | (dataframe['obv_rbear_1h'] & self.sell_calcobv) \
-            | (dataframe['rsi_rbear_1h'] & self.sell_calcrsi) \
-            | (dataframe['stk_rbear_1h'] & self.sell_calcstoc) \
-            | (dataframe['uo_rbear_1h'] & self.sell_calcuo)
+        cond = (dataframe['cci_rbear_{}'.format(self.timeframe_above)] & self.sell_calccci) \
+            | (dataframe['cmf_rbear_{}'.format(self.timeframe_above)] & self.sell_calccmf) \
+            | (dataframe['macd_rbear_{}'.format(self.timeframe_above)] & self.sell_calcmacd) \
+            | (dataframe['mfi_rbear_{}'.format(self.timeframe_above)] & self.sell_calcmfi) \
+            | (dataframe['mom_rbear_{}'.format(self.timeframe_above)] & self.sell_calcmom) \
+            | (dataframe['obv_rbear_{}'.format(self.timeframe_above)] & self.sell_calcobv) \
+            | (dataframe['rsi_rbear_{}'.format(self.timeframe_above)] & self.sell_calcrsi) \
+            | (dataframe['stk_rbear_{}'.format(self.timeframe_above)] & self.sell_calcstoc) \
+            | (dataframe['uo_rbear_{}'.format(self.timeframe_above)] & self.sell_calcuo)
 
         if self.sell_minsignals.value > 0:
             sellcondition |= cond & (n_signals > self.sell_minsignals.value)
