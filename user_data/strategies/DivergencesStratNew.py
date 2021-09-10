@@ -20,7 +20,7 @@ import customindicators as ci
 # This class is a sample. Feel free to customize it.
 
 
-class DivStrat(IStrategy):
+class DivStratNew(IStrategy):
     """
     https://www.freqtrade.io/en/latest/strategy-customization/
 

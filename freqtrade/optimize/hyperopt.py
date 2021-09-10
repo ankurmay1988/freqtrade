@@ -110,7 +110,7 @@ class Hyperopt:
                 logger.warning(
                     "DEPRECATED: Using `populate_indicators()` in the hyperopt file is deprecated. "
                     "Please move these methods to your strategy."
-                    )
+                )
                 self.backtesting.strategy.populate_indicators = (  # type: ignore
                     self.custom_hyperopt.populate_indicators)  # type: ignore
             if hasattr(self.custom_hyperopt, 'populate_buy_trend'):
@@ -387,7 +387,7 @@ class Hyperopt:
     def get_optimizer(self, dimensions: List[Dimension], cpu_count) -> Optimizer:
         return Optimizer(
             dimensions,
-            base_estimator="ET",
+            base_estimator="GBRT",
             acq_optimizer="auto",
             n_initial_points=INITIAL_POINTS,
             acq_optimizer_kwargs={'n_jobs': cpu_count},
