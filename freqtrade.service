@@ -1,13 +1,13 @@
 [Unit]
 Description=Freqtrade Daemon
-RequiresMountsFor=/disk/freqtrade
+RequiresMountsFor=/mnt/d/GitHub/freqtrade
 After=network.target
 
 [Service]
 # Set WorkingDirectory and ExecStart to your file paths accordingly
 # NOTE: %h will be resolved to /home/<username>
-WorkingDirectory=/disk/freqtrade
-ExecStart=/disk/freqtrade/.env/bin/freqtrade trade --strategy DivStrat
+WorkingDirectory=/mnt/d/GitHub/freqtrade/freqtrade
+ExecStart=/mnt/d/GitHub/freqtrade/.env/bin/freqtrade trade --strategy DivStrat
 Restart=on-failure
 
 [Install]

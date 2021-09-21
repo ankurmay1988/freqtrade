@@ -1,11 +1,11 @@
 {
-  "strategy_name": "DivStrat",
+  "strategy_name": "DivStratNew",
   "params": {
     "roi": {
       "0": 100
     },
     "stoploss": {
-      "stoploss": -0.013
+      "stoploss": -0.1
     },
     "trailing": {
       "trailing_stop": false,
@@ -14,18 +14,17 @@
       "trailing_only_offset_is_reached": false
     },
     "buy": {
-      "buy_useBTC": false,
-      "buy_flag": 338,
-      "buy_minsignals": 1,
-      "maxpp": 5,
-      "prd": 4
+      "buy_flag": 319,
+      "buy_minsignals": 0,
+      "maxpp": 8,
+      "prd": 5
     },
     "sell": {
-      "sell_flag": 381,
+      "sell_flag": 1,
       "sell_minsignals": 0
     },
     "protection": {}
   },
   "ft_stratparam_v": 1,
-  "export_time": "2021-09-10 05:23:42.846169+00:00"
+  "export_time": "2021-09-21 02:10:31.131259+00:00"
 }

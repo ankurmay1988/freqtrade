@@ -1,0 +1,30 @@
+{
+  "strategy_name": "DivStratNew",
+  "params": {
+    "roi": {
+      "0": 100
+    },
+    "stoploss": {
+      "stoploss": -0.1
+    },
+    "trailing": {
+      "trailing_stop": false,
+      "trailing_stop_positive": null,
+      "trailing_stop_positive_offset": 0.0,
+      "trailing_only_offset_is_reached": false
+    },
+    "buy": {
+      "buy_flag": 73,
+      "buy_minsignals": 0,
+      "maxpp": 5,
+      "prd": 8
+    },
+    "sell": {
+      "sell_flag": 511,
+      "sell_minsignals": 0
+    },
+    "protection": {}
+  },
+  "ft_stratparam_v": 1,
+  "export_time": "2021-09-21 02:24:03.608574+00:00"
+}

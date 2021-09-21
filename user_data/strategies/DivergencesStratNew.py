@@ -3,7 +3,7 @@
 # isort: skip_file
 # --- Do not remove these libs ---
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 import numpy as np
 from numpy.core.numeric import cross  # noqa
 import pandas as pd  # noqa
@@ -12,6 +12,7 @@ from pandas.core.series import Series
 
 from freqtrade.strategy import IStrategy, merge_informative_pair
 from freqtrade.strategy import CategoricalParameter, DecimalParameter, IntParameter, RealParameter, BooleanParameter
+from freqtrade.persistence import Trade
 
 # --------------------------------
 # Add your lib to import here
@@ -36,7 +37,7 @@ class DivStratNew(IStrategy):
 
     # Optimal stoploss designed for the strategy.
     # This attribute will be overridden if the config file contains "stoploss".
-    stoploss = -0.013
+    stoploss = -0.1
 
     # Trailing stop:
     trailing_stop = False  # value loaded from strategy
@@ -67,12 +68,12 @@ class DivStratNew(IStrategy):
 
     # Hyperoptable parameters
     # Pivot Period
-    prd = IntParameter(default=5, low=1, high=10,
+    prd = IntParameter(default=3, low=1, high=10,
                        space='buy', load=True, optimize=True)
     # Source for Pivot Points
     source = CategoricalParameter(default="close", categories=["close", "high/low"])
     # Maximum Pivot Points to Check
-    maxpp = IntParameter(default=2, low=1, high=10,
+    maxpp = IntParameter(default=3, low=1, high=10,
                          space='buy', load=True, optimize=True)
 
     # Buy osc signal flags
@@ -87,8 +88,6 @@ class DivStratNew(IStrategy):
 
     sell_minsignals = IntParameter(default=1, low=0, high=len(osc_flags),
                                    space='sell', load=True, optimize=True)
-
-    buy_useBTC = BooleanParameter(default=False, space='buy', load=False, optimize=False)
 
     # Optimal timeframe for the strategy.
     timeframe = '30m'
@@ -132,26 +131,24 @@ class DivStratNew(IStrategy):
                             ]
         """
         # get access to all pairs available in whitelist.
-        pairs = self.dp.current_whitelist()
+        # pairs = self.dp.current_whitelist()
 
-        # Assign tf to each pair so they can be downloaded and cached for strategy.
-        informative_pairs = [(pair, self.timeframe_above) for pair in pairs]
+        # # Assign tf to each pair so they can be downloaded and cached for strategy.
+        # informative_pairs = [(pair, self.timeframe_above) for pair in pairs]
 
-        # add other pairs if needed maybe BTC ?
-        informative_pairs += [
-            ("BTC/USDT", self.timeframe)
-        ]
+        # # add other pairs if needed maybe BTC ?
+        # # informative_pairs += [("BTC/USDT", self.timeframe)]
 
-        return informative_pairs
-        # return []
+        # return informative_pairs
+        return []
 
-    def calc_indicators(self, dataframe: DataFrame) -> DataFrame:
+    def calc_indicators(self, dataframe: DataFrame):
         self.getOscFlags()
 
         dataframe['hlc3'] = dataframe.ta.hlc3()
         dataframe['rsi'] = dataframe.ta.rsi(14)
-        dataframe['macd'], dataframe['deltamacd'], dataframe['signal'] = \
-            zip(*dataframe.ta.macd(12, 26, 9).values)
+        dataframe['macd'], dataframe['deltamacd'], dataframe['signal'] = zip(
+            *dataframe.ta.macd(12, 26, 9).values)
         dataframe['mom'] = dataframe.ta.mom(10)
         dataframe['cci'] = dataframe.ta.cci(10)
         dataframe['obv'] = dataframe.ta.obv()
@@ -161,6 +158,7 @@ class DivStratNew(IStrategy):
         dataframe['mfi'] = dataframe.ta.mfi(14)
         dataframe['uo'] = dataframe.ta.uo()
         dataframe['ema200'] = dataframe.ta.ema(200)
+        dataframe['sma50'] = dataframe.ta.sma(50)
 
         priceSource = dataframe['close'] if self.source.value == 'close' else dataframe['close']
 
@@ -177,9 +175,13 @@ class DivStratNew(IStrategy):
                 self.calculateDivergences(priceSource=priceSource,
                                           osc=dataframe[ind], phFound=ph, plFound=pl)
 
+        dataframe['uptrend'] = dataframe['sma50'] > dataframe['ema200']
+        dataframe['price_above_sma50'] = (dataframe['hlc3'] > dataframe['sma50'])
+        dataframe['price_above_ema200'] = (dataframe['hlc3'] > dataframe['ema200'])
+        
         return dataframe
 
-    def populate_indicators(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+    def populate_indicators(self, dataframe: DataFrame, metadata: dict):
         """
         Adds several different TA indicators to the given DataFrame
 
@@ -193,29 +195,18 @@ class DivStratNew(IStrategy):
 
         dataframe = self.calc_indicators(dataframe)
 
-        if not self.dp is None:
-            df1h = self.dp.get_pair_dataframe("ETH/USDT", self.timeframe_above)
-            df1h = self.calc_indicators(df1h)
-            dataframe = merge_informative_pair(
-                dataframe, df1h, self.timeframe, self.timeframe_above, ffill=True)
-
-        if (not self.dp is None) & (self.buy_useBTC.value):
-            dfbtc = self.dp.get_pair_dataframe("BTC/USDT", self.timeframe)
-            dfbtc = self.calc_indicators(dfbtc)
-            indicatorList = list(self.osc_flags.keys())
-            for ind in indicatorList:
-                dataframe['{}_rbull_btc'.format(ind)] = dfbtc['{}_rbull'.format(ind)]
-                dataframe['{}_hbull_btc'.format(ind)] = dfbtc['{}_hbull'.format(ind)]
-                dataframe['{}_rbear_btc'.format(ind)] = dfbtc['{}_rbear'.format(ind)]
-                dataframe['{}_hbear_btc'.format(ind)] = dfbtc['{}_hbear'.format(ind)]
+        # if not self.dp is None:
+        #     df1h = self.dp.get_pair_dataframe(metadata['pair'], self.timeframe_above)
+        #     df1h = self.calc_indicators(df1h)
+        #     dataframe = merge_informative_pair(
+        #         dataframe, df1h, self.timeframe, self.timeframe_above, ffill=True)
 
         # # Graph object to plot and analyze divergence data
         graphData = DataFrame()
-        # if self.dp.runmode.value not in ["live", "dry_run"]:
-        #     dataframe.to_csv('/disk/freqtrade/data.csv')
+        # dataframe.to_csv('D:\\data.csv')
         return dataframe
 
-    def populate_buy_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+    def populate_buy_trend(self, dataframe: DataFrame, metadata: dict):
         """
         Based on TA indicators, populates the buy signal for the given dataframe
         :param dataframe: DataFrame populated with indicators
@@ -223,113 +214,71 @@ class DivStratNew(IStrategy):
         :return: DataFrame with buy column
         """
         self.getOscFlags()
+        indicatorList = list(self.osc_flags.keys())
+        buycondition = pd.Series(np.full(dataframe['close'].size, False))
+        uptrend = dataframe['uptrend']
+        price_above_sma50 = dataframe['price_above_sma50']
+        price_above_ema200 = dataframe['price_above_ema200']
 
-        price_above_200ema = dataframe['close'] > dataframe['ema200']
+        n_signals = np.full(dataframe['close'].size, 0)
+        cond = np.full(dataframe['close'].size, False)
+        for ind in indicatorList:
+            bullStr = '{}_rbull'.format(ind)
+            osc_condition = dataframe[bullStr] & self.oscBuyFlags[ind]
+            n_signals += np.where(osc_condition, 1, 0)
+            cond = cond | osc_condition
 
-        n_signals = np.where(dataframe['cci_rbull'] & self.calccci, 1, 0) + \
-            np.where(dataframe['cmf_rbull'] & self.calccmf, 1, 0) + \
-            np.where(dataframe['macd_rbull'] & self.calcmacd, 1, 0) + \
-            np.where(dataframe['mfi_rbull'] & self.calcmfi, 1, 0) + \
-            np.where(dataframe['mom_rbull'] & self.calcmom, 1, 0) + \
-            np.where(dataframe['obv_rbull'] & self.calcobv, 1, 0) + \
-            np.where(dataframe['rsi_rbull'] & self.calcrsi, 1, 0) + \
-            np.where(dataframe['stk_rbull'] & self.calcstoc, 1, 0) + \
-            np.where(dataframe['uo_rbull'] & self.calcuo, 1, 0)
+        cond = cond & uptrend & price_above_ema200
+        
+        if self.buy_minsignals.value > 0:
+            signal = cond & (n_signals > self.buy_minsignals.value)
+        else:
+            signal = cond
 
-        cond = (dataframe['cci_rbull'] & self.calccci) \
-            | (dataframe['cmf_rbull'] & self.calccmf) \
-            | (dataframe['macd_rbull'] & self.calcmacd) \
-            | (dataframe['mfi_rbull'] & self.calcmfi) \
-            | (dataframe['mom_rbull'] & self.calcmom) \
-            | (dataframe['obv_rbull'] & self.calcobv) \
-            | (dataframe['rsi_rbull'] & self.calcrsi) \
-            | (dataframe['stk_rbull'] & self.calcstoc) \
-            | (dataframe['uo_rbull'] & self.calcuo)
+        signal = signal.shift(1).fillna(False)
+        dataframe.loc[signal, 'buy_tag'] = 'rbull_30m'
+        buycondition = buycondition | signal
+            
+        n_signals = np.full(dataframe['close'].shape[0], 0)
+        cond = np.full(dataframe['close'].shape[0], False)
+        for ind in indicatorList:
+            bullStr = '{}_hbull'.format(ind)
+            osc_condition = dataframe[bullStr] & self.oscBuyFlags[ind]
+            n_signals += np.where(osc_condition, 1, 0)
+            cond = cond | osc_condition
+            
+        cond = cond & uptrend & price_above_sma50
 
         if self.buy_minsignals.value > 0:
-            buycondition = cond & (n_signals > self.buy_minsignals.value)
+            signal = cond & (n_signals > self.buy_minsignals.value)
         else:
-            buycondition = cond
+            signal = cond
 
-        # When 1h chart show regular bullish divergence
-        n_signals_1h = np.where(dataframe['cci_rbull_{}'.format(self.timeframe_above)] & self.calccci, 1, 0) + \
-            np.where(dataframe['cmf_rbull_{}'.format(self.timeframe_above)] & self.calccmf, 1, 0) + \
-            np.where(dataframe['macd_rbull_{}'.format(self.timeframe_above)] & self.calcmacd, 1, 0) + \
-            np.where(dataframe['mfi_rbull_{}'.format(self.timeframe_above)] & self.calcmfi, 1, 0) + \
-            np.where(dataframe['mom_rbull_{}'.format(self.timeframe_above)] & self.calcmom, 1, 0) + \
-            np.where(dataframe['obv_rbull_{}'.format(self.timeframe_above)] & self.calcobv, 1, 0) + \
-            np.where(dataframe['rsi_rbull_{}'.format(self.timeframe_above)] & self.calcrsi, 1, 0) + \
-            np.where(dataframe['stk_rbull_{}'.format(self.timeframe_above)] & self.calcstoc, 1, 0) + \
-            np.where(dataframe['uo_rbull_{}'.format(self.timeframe_above)] & self.calcuo, 1, 0)
+        signal = signal.shift(1).fillna(False)
+        dataframe.loc[signal, 'buy_tag'] = 'hbull_30m'
+        buycondition = buycondition | signal
+        
+        n_signals = np.full(dataframe['close'].size, 0)
+        cond = np.full(dataframe['close'].size, False)
+        for ind in indicatorList:
+            bullStr = '{}_rbull'.format(ind)
+            osc_condition = dataframe[bullStr]
+            n_signals += np.where(osc_condition, 1, 0)
+            cond = cond | osc_condition
 
-        cond_reg_1h = (dataframe['cci_rbull_{}'.format(self.timeframe_above)] & self.calccci) \
-            | (dataframe['cmf_rbull_{}'.format(self.timeframe_above)] & self.calccmf) \
-            | (dataframe['macd_rbull_{}'.format(self.timeframe_above)] & self.calcmacd) \
-            | (dataframe['mfi_rbull_{}'.format(self.timeframe_above)] & self.calcmfi) \
-            | (dataframe['mom_rbull_{}'.format(self.timeframe_above)] & self.calcmom) \
-            | (dataframe['obv_rbull_{}'.format(self.timeframe_above)] & self.calcobv) \
-            | (dataframe['rsi_rbull_{}'.format(self.timeframe_above)] & self.calcrsi) \
-            | (dataframe['stk_rbull_{}'.format(self.timeframe_above)] & self.calcstoc) \
-            | (dataframe['uo_rbull_{}'.format(self.timeframe_above)] & self.calcuo)
+        cond = cond & (~uptrend) & (~price_above_ema200)
+        
+        signal = cond & (n_signals > 5)
 
-        if self.buy_minsignals.value > 0:
-            buycondition = buycondition | (cond_reg_1h & (n_signals_1h > self.buy_minsignals.value))
-        else:
-            buycondition = buycondition | cond_reg_1h
+        signal = signal.shift(1).fillna(False)
+        dataframe.loc[signal, 'buy_tag'] = 'rbull_30m_downtrend'
+        buycondition = buycondition | signal
 
-        # When 1h chart show hidden bullish divergence and price is above the 200 ema
-        # that means trend will continue to be bullish so we can buy at this time also.
-        n_signals_1h = np.where(dataframe['cci_hbull_{}'.format(self.timeframe_above)] & self.calccci, 1, 0) + \
-            np.where(dataframe['cmf_hbull_{}'.format(self.timeframe_above)] & self.calccmf, 1, 0) + \
-            np.where(dataframe['macd_hbull_{}'.format(self.timeframe_above)] & self.calcmacd, 1, 0) + \
-            np.where(dataframe['mfi_hbull_{}'.format(self.timeframe_above)] & self.calcmfi, 1, 0) + \
-            np.where(dataframe['mom_hbull_{}'.format(self.timeframe_above)] & self.calcmom, 1, 0) + \
-            np.where(dataframe['obv_hbull_{}'.format(self.timeframe_above)] & self.calcobv, 1, 0) + \
-            np.where(dataframe['rsi_hbull_{}'.format(self.timeframe_above)] & self.calcrsi, 1, 0) + \
-            np.where(dataframe['stk_hbull_{}'.format(self.timeframe_above)] & self.calcstoc, 1, 0) + \
-            np.where(dataframe['uo_hbull_{}'.format(self.timeframe_above)] & self.calcuo, 1, 0)
-
-        cond_1h = (dataframe['cci_hbull_{}'.format(self.timeframe_above)] & self.calccci) \
-            | (dataframe['cmf_hbull_{}'.format(self.timeframe_above)] & self.calccmf) \
-            | (dataframe['macd_hbull_{}'.format(self.timeframe_above)] & self.calcmacd) \
-            | (dataframe['mfi_hbull_{}'.format(self.timeframe_above)] & self.calcmfi) \
-            | (dataframe['mom_hbull_{}'.format(self.timeframe_above)] & self.calcmom) \
-            | (dataframe['obv_hbull_{}'.format(self.timeframe_above)] & self.calcobv) \
-            | (dataframe['rsi_hbull_{}'.format(self.timeframe_above)] & self.calcrsi) \
-            | (dataframe['stk_hbull_{}'.format(self.timeframe_above)] & self.calcstoc) \
-            | (dataframe['uo_hbull_{}'.format(self.timeframe_above)] & self.calcuo)
-
-        if self.buy_minsignals.value > 0:
-            signal = ((cond_1h & price_above_200ema) & (n_signals_1h > self.buy_minsignals.value))
-        else:
-            signal = cond_1h & price_above_200ema
-
-        dataframe.loc[signal, 'buy_tag'] = 'hbull_1h'
-        buycondition |= signal
-
-        # If Bitcoin also shows bullish divergence then also we can buy
-        if self.buy_useBTC.value:
-            cond_btc = (dataframe['cci_rbull_btc'] & self.calccci) \
-                | (dataframe['cmf_rbull_btc'] & self.calccmf) \
-                | (dataframe['macd_rbull_btc'] & self.calcmacd) \
-                | (dataframe['mfi_rbull_btc'] & self.calcmfi) \
-                | (dataframe['mom_rbull_btc'] & self.calcmom) \
-                | (dataframe['obv_rbull_btc'] & self.calcobv) \
-                | (dataframe['rsi_rbull_btc'] & self.calcrsi) \
-                | (dataframe['stk_rbull_btc'] & self.calcstoc) \
-                | (dataframe['uo_rbull_btc'] & self.calcuo)
-
-            buycondition |= cond_btc
-
-        dataframe.loc[
-            (
-                buycondition.shift(1).fillna(False)
-            ),
-            'buy'] = 1
+        dataframe.loc[buycondition, 'buy'] = 1
 
         return dataframe
 
-    def populate_sell_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
+    def populate_sell_trend(self, dataframe: DataFrame, metadata: dict):
         """
         Based on TA indicators, populates the sell signal for the given dataframe
         :param dataframe: DataFrame populated with indicators
@@ -337,129 +286,70 @@ class DivStratNew(IStrategy):
         :return: DataFrame with sell column
         """
         self.getOscFlags()
+        indicatorList = list(self.osc_flags.keys())
+        sellcondition = pd.Series(np.full(dataframe['close'].size, False))
+        uptrend = dataframe['uptrend']
+        price_above_sma50 = dataframe['price_above_sma50']
+        price_above_ema200 = dataframe['price_above_ema200']
 
-        # Using 1h timeframe is it supposed to be more accurate
-        n_signals = np.where(dataframe['cci_rbear'] & self.calccci, 1, 0) + \
-            np.where(dataframe['cmf_rbear'] & self.calccmf, 1, 0) + \
-            np.where(dataframe['macd_rbear'] & self.calcmacd, 1, 0) + \
-            np.where(dataframe['mfi_rbear'] & self.calcmfi, 1, 0) + \
-            np.where(dataframe['mom_rbear'] & self.calcmom, 1, 0) + \
-            np.where(dataframe['obv_rbear'] & self.calcobv, 1, 0) + \
-            np.where(dataframe['rsi_rbear'] & self.calcrsi, 1, 0) + \
-            np.where(dataframe['stk_rbear'] & self.calcstoc, 1, 0) + \
-            np.where(dataframe['uo_rbear'] & self.calcuo, 1, 0)
+        n_signals = np.full(dataframe['close'].shape[0], 0)
+        cond = np.full(dataframe['close'].shape[0], False)
+        for ind in indicatorList:
+            bearStr = '{}_rbear'.format(ind)
+            osc_condition = dataframe[bearStr] & self.oscSellFlags[ind]
+            n_signals += np.where(osc_condition, 1, 0)
+            cond = cond | osc_condition
 
-        cond = (dataframe['cci_rbear'] & self.sell_calccci) \
-            | (dataframe['cmf_rbear'] & self.sell_calccmf) \
-            | (dataframe['macd_rbear'] & self.sell_calcmacd) \
-            | (dataframe['mfi_rbear'] & self.sell_calcmfi) \
-            | (dataframe['mom_rbear'] & self.sell_calcmom) \
-            | (dataframe['obv_rbear'] & self.sell_calcobv) \
-            | (dataframe['rsi_rbear'] & self.sell_calcrsi) \
-            | (dataframe['stk_rbear'] & self.sell_calcstoc) \
-            | (dataframe['uo_rbear'] & self.sell_calcuo)
-
+        cond = cond & uptrend & price_above_ema200
         if self.sell_minsignals.value > 0:
-            sellcondition = cond & (n_signals > self.sell_minsignals.value)
+            signal = cond & (n_signals > self.sell_minsignals.value)
         else:
-            sellcondition = cond
+            signal = cond
+            
+        signal = signal.shift(1).fillna(False)
+        dataframe.loc[signal, 'sell_tag'] = 'rbear_30m'
+        sellcondition = sellcondition | signal
+        
+        # n_signals = np.full(dataframe['close'].shape[0], 0)
+        # cond = np.full(dataframe['close'].shape[0], False)
+        # for ind in indicatorList:
+        #     bearStr = '{}_hbear'.format(ind)
+        #     osc_condition = dataframe[bearStr] & self.oscSellFlags[ind]
+        #     n_signals += np.where(osc_condition, 1, 0)
+        #     cond = cond | osc_condition
 
-        # Using 1h timeframe is it supposed to be more accurate
-        n_signals = np.where(dataframe['cci_rbear_{}'.format(self.timeframe_above)] & self.calccci, 1, 0) + \
-            np.where(dataframe['cmf_rbear_{}'.format(self.timeframe_above)] & self.calccmf, 1, 0) + \
-            np.where(dataframe['macd_rbear_{}'.format(self.timeframe_above)] & self.calcmacd, 1, 0) + \
-            np.where(dataframe['mfi_rbear_{}'.format(self.timeframe_above)] & self.calcmfi, 1, 0) + \
-            np.where(dataframe['mom_rbear_{}'.format(self.timeframe_above)] & self.calcmom, 1, 0) + \
-            np.where(dataframe['obv_rbear_{}'.format(self.timeframe_above)] & self.calcobv, 1, 0) + \
-            np.where(dataframe['rsi_rbear_{}'.format(self.timeframe_above)] & self.calcrsi, 1, 0) + \
-            np.where(dataframe['stk_rbear_{}'.format(self.timeframe_above)] & self.calcstoc, 1, 0) + \
-            np.where(dataframe['uo_rbear_{}'.format(self.timeframe_above)] & self.calcuo, 1, 0)
+        # cond = cond & uptrend & price_above_sma50
+        
+        # if self.sell_minsignals.value > 0:
+        #     signal = cond & (n_signals > self.sell_minsignals.value)
+        # else:
+        #     signal = cond
+            
+        # signal = signal.shift(1).fillna(False)
+        # dataframe.loc[signal, 'sell_tag'] = 'hbear_30m'
+        # sellcondition = sellcondition | signal
 
-        cond = (dataframe['cci_rbear_{}'.format(self.timeframe_above)] & self.sell_calccci) \
-            | (dataframe['cmf_rbear_{}'.format(self.timeframe_above)] & self.sell_calccmf) \
-            | (dataframe['macd_rbear_{}'.format(self.timeframe_above)] & self.sell_calcmacd) \
-            | (dataframe['mfi_rbear_{}'.format(self.timeframe_above)] & self.sell_calcmfi) \
-            | (dataframe['mom_rbear_{}'.format(self.timeframe_above)] & self.sell_calcmom) \
-            | (dataframe['obv_rbear_{}'.format(self.timeframe_above)] & self.sell_calcobv) \
-            | (dataframe['rsi_rbear_{}'.format(self.timeframe_above)] & self.sell_calcrsi) \
-            | (dataframe['stk_rbear_{}'.format(self.timeframe_above)] & self.sell_calcstoc) \
-            | (dataframe['uo_rbear_{}'.format(self.timeframe_above)] & self.sell_calcuo)
-
-        if self.sell_minsignals.value > 0:
-            sellcondition |= cond & (n_signals > self.sell_minsignals.value)
-        else:
-            sellcondition |= cond
-
-        n_signals = np.where(dataframe['cci_hbear'] & self.calccci, 1, 0) + \
-            np.where(dataframe['cmf_hbear'] & self.calccmf, 1, 0) + \
-            np.where(dataframe['macd_hbear'] & self.calcmacd, 1, 0) + \
-            np.where(dataframe['mfi_hbear'] & self.calcmfi, 1, 0) + \
-            np.where(dataframe['mom_hbear'] & self.calcmom, 1, 0) + \
-            np.where(dataframe['obv_hbear'] & self.calcobv, 1, 0) + \
-            np.where(dataframe['rsi_hbear'] & self.calcrsi, 1, 0) + \
-            np.where(dataframe['stk_hbear'] & self.calcstoc, 1, 0) + \
-            np.where(dataframe['uo_hbear'] & self.calcuo, 1, 0)
-
-        cond = (dataframe['cci_hbear'] & self.sell_calccci) \
-            | (dataframe['cmf_hbear'] & self.sell_calccmf) \
-            | (dataframe['macd_hbear'] & self.sell_calcmacd) \
-            | (dataframe['mfi_hbear'] & self.sell_calcmfi) \
-            | (dataframe['mom_hbear'] & self.sell_calcmom) \
-            | (dataframe['obv_hbear'] & self.sell_calcobv) \
-            | (dataframe['rsi_hbear'] & self.sell_calcrsi) \
-            | (dataframe['stk_hbear'] & self.sell_calcstoc) \
-            | (dataframe['uo_hbear'] & self.sell_calcuo)
-
-        if self.sell_minsignals.value > 0:
-            sellcondition |= cond & (n_signals > self.sell_minsignals.value)
-        else:
-            sellcondition |= cond
-
-        dataframe.loc[
-            (
-                sellcondition.shift(1).fillna(False)
-            ),
-            'sell'] = 1
+        dataframe.loc[sellcondition, 'sell'] = 1
+        
         return dataframe
+    
+    def custom_sell(self, pair: str, trade: Trade, current_time: datetime, current_rate: float, current_profit: float, **kwargs):
+        dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+        last_candle = dataframe.iloc[-1].squeeze()
+        profit_pct = current_profit * 100
+        if trade.buy_tag == 'rbull_30m_downtrend':
+            if profit_pct > 1.2:
+                return 'sell_candle_red_downtrend'
+
+        return None
 
     def getOscFlags(self):
-        # MACD
-        self.calcmacd = (self.buy_flag.value & self.oscillators.macd) > 0
-        # RSI
-        self.calcrsi = (self.buy_flag.value & self.oscillators.rsi) > 0
-        # Stochastic
-        self.calcstoc = (self.buy_flag.value & self.oscillators.stk) > 0
-        # CCI
-        self.calccci = (self.buy_flag.value & self.oscillators.cci) > 0
-        # Momentum
-        self.calcmom = (self.buy_flag.value & self.oscillators.mom) > 0
-        # OBV
-        self.calcobv = (self.buy_flag.value & self.oscillators.obv) > 0
-        # Chaikin Money Flow
-        self.calccmf = (self.buy_flag.value & self.oscillators.cmf) > 0
-        # Money Flow Index
-        self.calcmfi = (self.buy_flag.value & self.oscillators.mfi) > 0
-        # Ultimate Oscillator
-        self.calcuo = (self.buy_flag.value & self.oscillators.uo) > 0
-
-        # MACD
-        self.sell_calcmacd = (self.sell_flag.value & self.oscillators.macd) > 0
-        # RSI
-        self.sell_calcrsi = (self.sell_flag.value & self.oscillators.rsi) > 0
-        # Stochastic
-        self.sell_calcstoc = (self.sell_flag.value & self.oscillators.stk) > 0
-        # CCI
-        self.sell_calccci = (self.sell_flag.value & self.oscillators.cci) > 0
-        # Momentum
-        self.sell_calcmom = (self.sell_flag.value & self.oscillators.mom) > 0
-        # OBV
-        self.sell_calcobv = (self.sell_flag.value & self.oscillators.obv) > 0
-        # Chaikin Money Flow
-        self.sell_calccmf = (self.sell_flag.value & self.oscillators.cmf) > 0
-        # Money Flow Index
-        self.sell_calcmfi = (self.sell_flag.value & self.oscillators.mfi) > 0
-        # Ultimate Oscillator
-        self.sell_calcuo = (self.sell_flag.value & self.oscillators.uo) > 0
+        self.oscBuyFlags = {}
+        self.oscSellFlags = {}
+        indicatorList = list(self.osc_flags.keys())
+        for ind in indicatorList:
+            self.oscBuyFlags[ind] = (self.buy_flag.value & self.osc_flags[ind]) > 0
+            self.oscSellFlags[ind] = (self.sell_flag.value & self.osc_flags[ind]) > 0
 
     def calculateDivergences(self, priceSource: Series, osc: Series, phFound: Series, plFound: Series):
         mpp = self.maxpp.value
@@ -469,75 +359,57 @@ class DivStratNew(IStrategy):
         priceSourceL = priceSource.loc[plFound]
         priceSourceH = priceSource.loc[phFound]
 
-        # ------------------------------------------------------------------------------
-        # Regular Bullish
-        # Osc: Higher Low
         oscHL = pd.DataFrame()
         priceLL = pd.DataFrame()
-        for ppidx in range(0, mpp):
-            oscHL[ppidx] = (oscL.diff(ppidx + 1) > 0)
-
-        # Price: Lower Low
-        for ppidx in range(0, mpp):
-            priceLL[ppidx] = (priceSourceL.diff(ppidx + 1) < 0)
-
-        bullCond = (priceLL & oscHL).apply(np.any, axis=1) & plFound
-
-        del oscHL
-        del priceLL
-
-        # ------------------------------------------------------------------------------
-        # Hidden Bullish
-        # Osc: Lower Low
         oscLL = pd.DataFrame()
         priceHL = pd.DataFrame()
-        for ppidx in range(0, mpp):
-            oscLL[ppidx] = (oscL.diff(ppidx + 1) < 0)
-
-        # Price: Higher Low
-        for ppidx in range(0, mpp):
-            priceHL[ppidx] = (priceSourceL.diff(ppidx + 1) > 0)
-
-        hiddenBullCond = (priceHL & oscLL).apply(np.any, axis=1) & plFound
-
-        del oscLL
-        del priceHL
-
-        # ------------------------------------------------------------------------------
-        # Regular Bearish
-        # Osc: Lower High
         oscLH = pd.DataFrame()
         priceHH = pd.DataFrame()
-
-        for ppidx in range(0, mpp):
-            oscLH[ppidx] = (oscH.diff(ppidx + 1) < 0)
-
-        # Price: Higher High
-        for ppidx in range(0, mpp):
-            priceHH[ppidx] = (priceSourceH.diff(ppidx + 1) > 0)
-
-        bearCond = (priceHH & oscLH).apply(np.any, axis=1) & phFound
-
-        del oscLH
-        del priceHH
-
-        # ------------------------------------------------------------------------------
-        # Hidden Bearish
-        # Osc: Higher High
-
         oscHH = pd.DataFrame()
         priceLH = pd.DataFrame()
-        for ppidx in range(0, mpp):
-            oscHH[ppidx] = (oscH.diff(ppidx + 1) > 0)
 
-        # Price: Lower High
         for ppidx in range(0, mpp):
-            priceLH[ppidx] = (priceSourceH.diff(ppidx + 1) < 0)
+            oscLDiff = oscL.diff(ppidx + 1)
+            priceLDiff = priceSourceL.diff(ppidx + 1)
+            oscHDiff = oscH.diff(ppidx + 1)
+            priceHDiff = priceSourceH.diff(ppidx + 1)
 
+            # ------------------------------------------------------------------------------
+            #   Regular Bullish
+            # ------------------------------------------------------------------------------
+            # Osc: Higher Low
+            oscHL[ppidx] = (oscLDiff > 0)
+            # Price: Lower Low
+            priceLL[ppidx] = (priceLDiff < 0)
+
+            # ------------------------------------------------------------------------------
+            #   Hidden Bullish
+            # ------------------------------------------------------------------------------
+            # Osc: Lower Low
+            oscLL[ppidx] = (oscLDiff < 0)
+            # Price: Higher Low
+            priceHL[ppidx] = (priceLDiff > 0)
+
+            # ------------------------------------------------------------------------------
+            #   Regular Bearish
+            # ------------------------------------------------------------------------------
+            # Osc: Lower High
+            oscLH[ppidx] = (oscHDiff < 0)
+            # Price: Higher High
+            priceHH[ppidx] = (priceHDiff > 0)
+
+            # ------------------------------------------------------------------------------
+            #   Hidden Bearish
+            # ------------------------------------------------------------------------------
+            # Osc: Higher High
+            oscHH[ppidx] = (oscHDiff > 0)
+            # Price: Lower High
+            priceLH[ppidx] = (priceHDiff < 0)
+
+        bullCond = (priceLL & oscHL).apply(np.any, axis=1) & plFound
+        hiddenBullCond = (priceHL & oscLL).apply(np.any, axis=1) & plFound
+        bearCond = (priceHH & oscLH).apply(np.any, axis=1) & phFound
         hiddenBearCond = (priceLH & oscHH).apply(np.any, axis=1) & phFound
-
-        del oscHH
-        del priceLH
 
         return (
             bullCond.fillna(value=False),
