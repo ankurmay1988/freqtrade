@@ -21,7 +21,7 @@ import customindicators as ci
 # This class is a sample. Feel free to customize it.
 
 
-class DivStratNew(IStrategy):
+class LiveStrategy(IStrategy):
     """
     https://www.freqtrade.io/en/latest/strategy-customization/
 
@@ -279,8 +279,6 @@ class DivStratNew(IStrategy):
         dataframe.loc[signal, 'buy_tag'] = 'hbull_30m'
         buycondition = buycondition | signal
         
-        buycondition = (buycondition | buycondition.shift(1) | buycondition.shift(2)) & macd_up
-        
         # n_signals = np.full(dataframe['close'].size, 0)
         # cond = np.full(dataframe['close'].size, False)
         # for ind in indicatorList:
@@ -299,7 +297,7 @@ class DivStratNew(IStrategy):
 
         dataframe.loc[buycondition, 'buy'] = 1
 
-        return dataframe.copy()
+        return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict):
         """
@@ -329,7 +327,7 @@ class DivStratNew(IStrategy):
         else:
             signal = cond
             
-        # dataframe.loc[signal, 'sell_tag'] = 'rbear_30m'
+        dataframe.loc[signal, 'sell_tag'] = 'rbear_30m'
         sellcondition = sellcondition | signal
         
         n_signals = np.full(dataframe['close'].shape[0], 0)
@@ -347,12 +345,12 @@ class DivStratNew(IStrategy):
         else:
             signal = cond
             
-        # dataframe.loc[signal, 'sell_tag'] = 'hbear_30m'
+        dataframe.loc[signal, 'sell_tag'] = 'hbear_30m'
         sellcondition = sellcondition | signal
 
         dataframe.loc[sellcondition, 'sell'] = 1
         
-        return dataframe.copy()
+        return dataframe
     
     def custom_sell(self, pair: str, trade: Trade, current_time: datetime, current_rate: float, current_profit: float, **kwargs):
         dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)

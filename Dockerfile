@@ -55,4 +55,4 @@ RUN pip install -e . --user --no-cache-dir --no-build-isolation \
 
 ENTRYPOINT ["freqtrade"]
 # Default to trade mode
-CMD [ "trade" ]
+CMD [ "trade", "--strategy", "LiveStrategy", "--logfile", "/freqtrade/user_data/logs/freqtrade.log", "--db-url", "sqlite:////freqtrade/user_data/docker_tradesv3.sqlite", "--config", "/freqtrade/user_data/live_config.json"]

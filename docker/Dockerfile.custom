@@ -1,4 +1,4 @@
-FROM freqtradeorg/freqtrade:develop_plot
+FROM freqtradeorg/freqtrade:stable
 
 # Switch user to root if you must install something from apt
 # Don't forget to switch the user back below!
@@ -8,5 +8,6 @@ FROM freqtradeorg/freqtrade:develop_plot
 RUN pip install --user pyti
 RUN pip install --user ta
 RUN pip install --user scikit-optimize
+RUN pip install --user pandas-ta
 
 # USER ftuser

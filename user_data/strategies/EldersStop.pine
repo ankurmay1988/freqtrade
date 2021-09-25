@@ -1,0 +1,26 @@
+// Elder SafeZone Stops
+// Converted from http://chartingwithchris.blogspot.com/2008/10/elder-safezone-stop-system-thinkorswim.html
+//@version=2
+study("Elder SafeZone", overlay=true)
+
+coeff = input(2.5, "CoEff", type=float)
+lookbackLength = input(15, "LookBackLength", type=integer)
+
+countShort = high > high[1] ? 1 : 0
+diffShort = high > high[1] ? high - high[1] : 0
+totalCountShort = sum(countShort, lookbackLength)
+totalSumShort = sum(diffShort, lookbackLength)
+penAvgShort = (totalSumShort / totalCountShort)
+safetyShort = high[1] + (penAvgShort[1] * coeff)
+finalSafetyShort = min(min(safetyShort, safetyShort[1]), safetyShort[2])
+
+count = low < low[1] ? 1 : 0
+diff = low < low[1] ? low[1] - low : 0
+totalCount = sum(count, lookbackLength)
+totalSum = sum(diff, lookbackLength)
+penAvg = (totalSum / totalCount)
+safety = low[1] - (penAvg[1] * coeff)
+finalSafetyLong = max(max(safety, safety[1]), safety[2])
+
+p1 = plot(finalSafetyShort, "Short Stop", color=#ff00ff)
+p2 = plot(finalSafetyLong, "Long Stop", color=#ff00ff)

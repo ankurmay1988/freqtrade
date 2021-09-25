@@ -1,5 +1,6 @@
 # Freqtrade rules
-*.sqlite
+**/*.sqlite
+**/*.sqlite-journal
 logfile.txt
 !user_data/*
 !user_data/notebooks
@@ -105,3 +106,6 @@ target/
 
 nohup.out
 data.csv
+user_data/docker_tradesv3.sqlite
+user_data/tradesv3.sqlite
+user_data/tradesv3.sqlite-journal

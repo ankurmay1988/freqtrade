@@ -28,7 +28,9 @@ class SniperHyperOptLoss(IHyperOptLoss):
         """
         total_profit = results['profit_abs'].sum()
         sell_loss = np.where(results['profit_abs'] < 0, 1, 0).sum()
+        sell_profit = np.where(results['profit_abs'] > 0, 1, 0).sum()
         avg_trade_duration = results['trade_duration'].mean()
-        
-        result = -1 * (total_profit / (sell_loss + 1))
+        profitAndLoss = total_profit / (sell_loss + 1)
+        winRatio = sell_profit / (sell_loss + 1)
+        result = -1 * (profitAndLoss * winRatio)
         return result

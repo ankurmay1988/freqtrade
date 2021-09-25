@@ -1,11 +1,11 @@
 ---
-version: '3'
+version: "3"
 services:
   freqtrade:
-    # image: freqtradeorg/freqtrade:stable
+    image: freqtradeorg/freqtrade:stable
     # image: freqtradeorg/freqtrade:develop
     # Use plotting image
-    image: freqtradeorg/freqtrade:develop_plot
+    # image: freqtradeorg/freqtrade:develop_plot
     # Build step - only needed when additional dependencies are needed
     build:
       context: .
@@ -13,7 +13,8 @@ services:
     restart: unless-stopped
     container_name: freqtrade
     volumes:
-      - "./user_data:/freqtrade/user_data"
+      # - "./user_data:/freqtrade/user_data"
+      - "./:/freqtrade/"
     # Expose api on port 8080 (localhost only)
     # Please read the https://www.freqtrade.io/en/latest/rest-api/ documentation
     # before enabling this.
@@ -23,6 +24,6 @@ services:
     command: >
       trade
       --logfile /freqtrade/user_data/logs/freqtrade.log
-      --db-url sqlite:////freqtrade/user_data/tradesv3.sqlite
-      --config /freqtrade/user_data/config.json
-      --strategy MCStrategy
+      --db-url sqlite:////freqtrade/user_data/docker_tradesv3.sqlite
+      --config /freqtrade/user_data/live_config.json
+      --strategy LiveStrategy

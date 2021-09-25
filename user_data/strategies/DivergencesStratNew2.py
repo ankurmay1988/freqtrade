@@ -21,7 +21,7 @@ import customindicators as ci
 # This class is a sample. Feel free to customize it.
 
 
-class DivStratNew(IStrategy):
+class DivStratNew2(IStrategy):
     """
     https://www.freqtrade.io/en/latest/strategy-customization/
 
@@ -38,7 +38,7 @@ class DivStratNew(IStrategy):
     # Optimal stoploss designed for the strategy.
     # This attribute will be overridden if the config file contains "stoploss".
     stoploss = -0.1
-    
+
     # Trailing stop:
     trailing_stop = False  # value loaded from strategy
     trailing_stop_positive = None  # value loaded from strategy
@@ -146,24 +146,27 @@ class DivStratNew(IStrategy):
         self.getOscFlags()
 
         dataframe['hlc3'] = dataframe.ta.hlc3()
-        dataframe['rsi'] = dataframe.ta.rsi(14).round(2)
+        dataframe['rsi'] = pd.Series(dataframe.ta.rsi(14)).round(2)
+        
         dataframe['macd'], dataframe['deltamacd'], dataframe['signal'] = zip(
             *dataframe.ta.macd(9, 21, 5).values)
-        dataframe['mom'] = dataframe.ta.mom(10).round(2)
-        dataframe['cci'] = dataframe.ta.cci(10).round(2)
-        dataframe['obv'] = dataframe.ta.obv().round(2)
-        stk, std = zip(*dataframe.ta.stoch().values)
-        dataframe["stk"] = pd.Series(stk)
-        dataframe['cmf'] = dataframe.ta.cmf().round(2)
-        dataframe['mfi'] = dataframe.ta.mfi(14).round(2)
-        dataframe['uo'] = dataframe.ta.uo().round(2)
-        dataframe['ema200'] = dataframe.ta.ema(200).round(2)
-        dataframe['sma50'] = dataframe.ta.sma(50).round(2)
-        psar_l, psar_s, psar_af, psar_reversal = zip(*dataframe.ta.psar(af0=0.03, af=0.03, af_max=0.3).values)
-        dataframe['psar_l'] = pd.Series(psar_l)
+        
+        dataframe['mom'] = dataframe.ta.mom(10)
+        dataframe['cci'] = dataframe.ta.cci(10)
+        dataframe['obv'] = dataframe.ta.obv()
+        
         strsik, strsid = zip(*pta.stochrsi(dataframe['close'], 14, 14, 14, 3).values)
         dataframe["strsik"] = pd.Series(strsik).round(2)
+        dataframe["strsid"] = pd.Series(strsid).round(2)
         
+        stk, std = zip(*dataframe.ta.stoch().values)
+        dataframe["stk"] = pd.Series(stk)
+        dataframe['cmf'] = dataframe.ta.cmf()
+        dataframe['mfi'] = dataframe.ta.mfi(14)
+        dataframe['uo'] = dataframe.ta.uo()
+        dataframe['ema200'] = dataframe.ta.ema(200)
+        dataframe['sma50'] = dataframe.ta.sma(50)
+
         priceSource = dataframe['close'] if self.source.value == 'close' else dataframe['close']
 
         pp = ci.PivotPoint().pivotpoints(priceSource, self.prd.value)
@@ -180,15 +183,16 @@ class DivStratNew(IStrategy):
                                           osc=dataframe[ind], phFound=ph, plFound=pl)
 
         dataframe['uptrend'] = dataframe['sma50'] > dataframe['ema200']
-        dataframe['price_above_sma50'] = (dataframe['hlc3'] > dataframe['sma50'])
-        dataframe['price_above_ema200'] = (dataframe['hlc3'] > dataframe['ema200'])
-        dataframe['macd_up'] = dataframe['deltamacd'].round(2) > 0
+        dataframe['price_above_sma50'] = (dataframe['close'] > dataframe['sma50'])
+        dataframe['price_above_ema200'] = (dataframe['close'] > dataframe['ema200'])
+        
+        dataframe['macd_up'] = (dataframe['deltamacd'].round(2) - 0.02) > 0
         dataframe['rsi_crosses_50'] = ((dataframe['rsi'].shift(1) < 50) & (dataframe['rsi'] > 50)).ffill().fillna(False)
         dataframe['rsi_crosses_70'] = ((dataframe['rsi'].shift(1) < 70) & (dataframe['rsi'] > 70)).ffill().fillna(False)
         stochrsi_logic = dataframe['strsik'].apply(lambda x: True if x < 20 else False if x > 80 else np.nan)
         dataframe['stochrsi_oversold'] = stochrsi_logic.ffill().fillna(False)
         dataframe['buy_rsi_stochrsi_macd'] = dataframe['rsi_crosses_50'] & dataframe['macd_up'] & dataframe['stochrsi_oversold']
-        dataframe['sell_rsi_stochrsi_macd'] = dataframe['rsi_crosses_70']
+        dataframe['sell_rsi_stochrsi_macd'] = dataframe['rsi_crosses_70'] & dataframe['macd_up'] & dataframe['stochrsi_oversold']
         return dataframe
 
     def populate_indicators(self, dataframe: DataFrame, metadata: dict):
@@ -242,22 +246,23 @@ class DivStratNew(IStrategy):
         price_above_sma50 = dataframe['price_above_sma50']
         price_above_ema200 = dataframe['price_above_ema200']
         macd_up = dataframe['macd_up']
-        
+
         n_signals = np.full(dataframe['close'].size, 0)
         cond = np.full(dataframe['close'].size, False)
         for ind in indicatorList:
             bullStr = '{}_rbull'.format(ind)
-            osc_condition = dataframe[bullStr].shift(1).fillna(False) & self.oscBuyFlags[ind]
+            osc_condition = dataframe[bullStr] & self.oscBuyFlags[ind]
             n_signals += np.where(osc_condition, 1, 0)
             cond = cond | osc_condition
 
-        cond = cond & price_above_ema200
+        cond = cond & uptrend & price_above_ema200
         
         if self.buy_minsignals.value > 0:
             signal = cond & (n_signals > self.buy_minsignals.value)
         else:
             signal = cond
 
+        signal = signal.shift(1).fillna(False)
         dataframe.loc[signal, 'buy_tag'] = 'rbull_30m'
         buycondition = buycondition | signal
             
@@ -265,7 +270,7 @@ class DivStratNew(IStrategy):
         cond = np.full(dataframe['close'].shape[0], False)
         for ind in indicatorList:
             bullStr = '{}_hbull'.format(ind)
-            osc_condition = dataframe[bullStr].shift(1).fillna(False) & self.oscBuyFlags[ind]
+            osc_condition = dataframe[bullStr] & self.oscBuyFlags[ind]
             n_signals += np.where(osc_condition, 1, 0)
             cond = cond | osc_condition
             
@@ -276,30 +281,30 @@ class DivStratNew(IStrategy):
         else:
             signal = cond
 
+        signal = signal.shift(1).fillna(False)
         dataframe.loc[signal, 'buy_tag'] = 'hbull_30m'
         buycondition = buycondition | signal
-        
-        buycondition = (buycondition | buycondition.shift(1) | buycondition.shift(2)) & macd_up
         
         # n_signals = np.full(dataframe['close'].size, 0)
         # cond = np.full(dataframe['close'].size, False)
         # for ind in indicatorList:
         #     bullStr = '{}_rbull'.format(ind)
-        #     osc_condition = dataframe[bullStr].shift(1).fillna(False)
+        #     osc_condition = dataframe[bullStr]
         #     n_signals += np.where(osc_condition, 1, 0)
         #     cond = cond | osc_condition
 
         # cond = cond & (~uptrend) & (~price_above_ema200)
         
-        # signal = cond & (n_signals > 5)
-        
-        signal = dataframe["buy_rsi_stochrsi_macd"] & (~uptrend) & (~price_above_ema200)
+        # signal = cond
+        # signal = signal.ffill().fillna(False) & macd_up
+        # signal = signal.shift(1).fillna(False)
+        signal = dataframe['buy_rsi_stochrsi_macd'] & (~price_above_ema200)
         dataframe.loc[signal, 'buy_tag'] = 'rbull_30m_downtrend'
         buycondition = buycondition | signal
 
         dataframe.loc[buycondition, 'buy'] = 1
 
-        return dataframe.copy()
+        return dataframe
 
     def populate_sell_trend(self, dataframe: DataFrame, metadata: dict):
         """
@@ -319,67 +324,52 @@ class DivStratNew(IStrategy):
         cond = np.full(dataframe['close'].shape[0], False)
         for ind in indicatorList:
             bearStr = '{}_rbear'.format(ind)
-            osc_condition = dataframe[bearStr].shift(1).fillna(False) & self.oscSellFlags[ind]
+            osc_condition = dataframe[bearStr] & self.oscSellFlags[ind]
             n_signals += np.where(osc_condition, 1, 0)
             cond = cond | osc_condition
 
-        cond = cond & uptrend & price_above_ema200
+        # cond = cond & uptrend & price_above_ema200
         if self.sell_minsignals.value > 0:
             signal = cond & (n_signals > self.sell_minsignals.value)
         else:
             signal = cond
             
-        # dataframe.loc[signal, 'sell_tag'] = 'rbear_30m'
+        signal = signal.shift(1).fillna(False)
+        dataframe.loc[signal, 'sell_tag'] = 'rbear_30m'
         sellcondition = sellcondition | signal
         
         n_signals = np.full(dataframe['close'].shape[0], 0)
         cond = np.full(dataframe['close'].shape[0], False)
         for ind in indicatorList:
             bearStr = '{}_hbear'.format(ind)
-            osc_condition = dataframe[bearStr].shift(1).fillna(False) & self.oscSellFlags[ind]
+            osc_condition = dataframe[bearStr] & self.oscSellFlags[ind]
             n_signals += np.where(osc_condition, 1, 0)
             cond = cond | osc_condition
 
-        cond = cond & uptrend & price_above_sma50
+        cond = cond & price_above_sma50
         
         if self.sell_minsignals.value > 0:
             signal = cond & (n_signals > self.sell_minsignals.value)
         else:
             signal = cond
             
-        # dataframe.loc[signal, 'sell_tag'] = 'hbear_30m'
+        signal = signal.shift(1).fillna(False)
+        dataframe.loc[signal, 'sell_tag'] = 'hbear_30m'
         sellcondition = sellcondition | signal
 
         dataframe.loc[sellcondition, 'sell'] = 1
         
-        return dataframe.copy()
+        return dataframe
     
     def custom_sell(self, pair: str, trade: Trade, current_time: datetime, current_rate: float, current_profit: float, **kwargs):
         dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
         last_candle = dataframe.iloc[-1].squeeze()
         profit_pct = current_profit * 100
         if trade.buy_tag == 'rbull_30m_downtrend':
-            if profit_pct > 1.2 or last_candle['sell_rsi_stochrsi_macd']:
+            if (profit_pct > 1.2):
                 return 'sell_candle_red_downtrend'
 
         return None
-    
-    # use_custom_stoploss = True
-    # def custom_stoploss(self, pair: str, trade: Trade, current_time: datetime, current_rate: float, current_profit: float, **kwargs):
-    #     dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
-    #     last_candle = dataframe.iloc[-1].squeeze()
-    #     profit_pct = current_profit * 100
-    #     # Use parabolic sar as absolute stoploss price
-    #     # stoploss_price = last_candle['psar_l']
-
-    #     # Convert absolute price to percentage relative to current_rate
-    #     # if stoploss_price < current_rate:
-    #     #     return (stoploss_price / current_rate) - 1
-    #     if profit_pct > 4:
-    #         return 0.01
-        
-    #     # return maximum stoploss value, keeping current stoploss price unchanged
-    #     return 1
 
     def getOscFlags(self):
         self.oscBuyFlags = {}
