@@ -1,5 +1,5 @@
 {
-  "strategy_name": "DivStratNew",
+  "strategy_name": "DivStratNew2",
   "params": {
     "roi": {
       "0": 100
@@ -15,16 +15,16 @@
     },
     "buy": {
       "maxpp": 3,
-      "prd": 3,
-      "buy_flag": 180,
-      "buy_minsignals": 3
+      "prd": 6,
+      "buy_flag": 163,
+      "buy_minsignals": 2
     },
     "sell": {
-      "sell_flag": 457,
-      "sell_minsignals": 7
+      "sell_flag": 2,
+      "sell_minsignals": 4
     },
     "protection": {}
   },
   "ft_stratparam_v": 1,
-  "export_time": "2021-09-25 08:41:06.408683+00:00"
+  "export_time": "2021-09-25 11:02:18.290124+00:00"
 }

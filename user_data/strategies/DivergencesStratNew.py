@@ -69,12 +69,12 @@ class DivStratNew(IStrategy):
     # Hyperoptable parameters
     # Pivot Period
     prd = IntParameter(default=3, low=1, high=10,
-                       space='buy', load=True, optimize=True)
+                       space='buy', load=True, optimize=False)
     # Source for Pivot Points
     source = CategoricalParameter(default="close", categories=["close", "high/low"])
     # Maximum Pivot Points to Check
     maxpp = IntParameter(default=3, low=1, high=10,
-                         space='buy', load=True, optimize=True)
+                         space='buy', load=True, optimize=False)
 
     # Buy osc signal flags
     buy_flag = IntParameter(default=maxflagnum, low=0, high=maxflagnum,
@@ -323,32 +323,32 @@ class DivStratNew(IStrategy):
             n_signals += np.where(osc_condition, 1, 0)
             cond = cond | osc_condition
 
-        cond = cond & uptrend & price_above_ema200
+        # cond = cond & uptrend & price_above_ema200
         if self.sell_minsignals.value > 0:
             signal = cond & (n_signals > self.sell_minsignals.value)
         else:
             signal = cond
             
-        # dataframe.loc[signal, 'sell_tag'] = 'rbear_30m'
+        dataframe.loc[signal, 'sell_tag'] = 'rbear_30m'
         sellcondition = sellcondition | signal
         
-        n_signals = np.full(dataframe['close'].shape[0], 0)
-        cond = np.full(dataframe['close'].shape[0], False)
-        for ind in indicatorList:
-            bearStr = '{}_hbear'.format(ind)
-            osc_condition = dataframe[bearStr].shift(1).fillna(False) & self.oscSellFlags[ind]
-            n_signals += np.where(osc_condition, 1, 0)
-            cond = cond | osc_condition
+        # n_signals = np.full(dataframe['close'].shape[0], 0)
+        # cond = np.full(dataframe['close'].shape[0], False)
+        # for ind in indicatorList:
+        #     bearStr = '{}_hbear'.format(ind)
+        #     osc_condition = dataframe[bearStr].shift(1).fillna(False) & self.oscSellFlags[ind]
+        #     n_signals += np.where(osc_condition, 1, 0)
+        #     cond = cond | osc_condition
 
-        cond = cond & uptrend & price_above_sma50
+        # cond = cond & uptrend & price_above_sma50
         
-        if self.sell_minsignals.value > 0:
-            signal = cond & (n_signals > self.sell_minsignals.value)
-        else:
-            signal = cond
+        # if self.sell_minsignals.value > 0:
+        #     signal = cond & (n_signals > self.sell_minsignals.value)
+        # else:
+        #     signal = cond
             
         # dataframe.loc[signal, 'sell_tag'] = 'hbear_30m'
-        sellcondition = sellcondition | signal
+        # sellcondition = sellcondition | signal
 
         dataframe.loc[sellcondition, 'sell'] = 1
         

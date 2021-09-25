@@ -1,5 +1,5 @@
 {
-  "max_open_trades": 10,
+  "max_open_trades": 5,
   "stake_currency": "USDT",
   "stake_amount": "unlimited",
   "tradable_balance_ratio": 1,
@@ -12,7 +12,7 @@
     "sell": 30,
     "unit": "minutes"
   },
-  "stoploss": -0.018,
+  "stoploss": -0.05,
   "order_types": {
     "buy": "market",
     "sell": "market",
