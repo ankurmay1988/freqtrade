@@ -3,6 +3,7 @@
 # isort: skip_file
 # --- Do not remove these libs ---
 
+from customindicators.ElderSafeZone import ElderSafeZone
 from datetime import datetime, timedelta
 import numpy as np
 from numpy.core.numeric import cross  # noqa
@@ -163,6 +164,8 @@ class DivStratNew2(IStrategy):
         dataframe['psar_l'] = pd.Series(psar_l)
         strsik, strsid = zip(*pta.stochrsi(dataframe['close'], 14, 14, 14, 3).values)
         dataframe["strsik"] = pd.Series(strsik).round(2)
+        longStop, shortStop = ElderSafeZone(dataframe['high'], dataframe['low'])
+        dataframe["elderSafezoneLong"] = longStop
         
         priceSource = dataframe['close'] if self.source.value == 'close' else dataframe['close']
 
@@ -242,6 +245,7 @@ class DivStratNew2(IStrategy):
         price_above_sma50 = dataframe['price_above_sma50']
         price_above_ema200 = dataframe['price_above_ema200']
         macd_up = dataframe['macd_up']
+        rsi_crosses_50 = dataframe['rsi_crosses_50']
         
         n_signals = np.full(dataframe['close'].size, 0)
         cond = np.full(dataframe['close'].size, False)
@@ -251,13 +255,12 @@ class DivStratNew2(IStrategy):
             n_signals += np.where(osc_condition, 1, 0)
             cond = cond | osc_condition
 
-        cond = cond & price_above_ema200
-        
         if self.buy_minsignals.value > 0:
             signal = cond & (n_signals > self.buy_minsignals.value)
         else:
             signal = cond
 
+        signal = (signal | signal.shift(1)) & (rsi_crosses_50 | rsi_crosses_50.shift(1)) & (macd_up | macd_up.shift(1))
         dataframe.loc[signal, 'buy_tag'] = 'rbull_30m'
         buycondition = buycondition | signal
             
@@ -269,7 +272,7 @@ class DivStratNew2(IStrategy):
             n_signals += np.where(osc_condition, 1, 0)
             cond = cond | osc_condition
             
-        cond = cond & uptrend & price_above_sma50
+        cond = cond & price_above_sma50
 
         if self.buy_minsignals.value > 0:
             signal = cond & (n_signals > self.buy_minsignals.value)
@@ -357,27 +360,29 @@ class DivStratNew2(IStrategy):
         last_candle = dataframe.iloc[-1].squeeze()
         profit_pct = current_profit * 100
         if trade.buy_tag == 'rbull_30m_downtrend':
-            if profit_pct > 1.2 or last_candle['sell_rsi_stochrsi_macd']:
+            # if profit_pct > 1.2 or last_candle['sell_rsi_stochrsi_macd']:
+            if last_candle['sell_rsi_stochrsi_macd']:
                 return 'sell_candle_red_downtrend'
 
         return None
     
-    # use_custom_stoploss = True
-    # def custom_stoploss(self, pair: str, trade: Trade, current_time: datetime, current_rate: float, current_profit: float, **kwargs):
-    #     dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
-    #     last_candle = dataframe.iloc[-1].squeeze()
-    #     profit_pct = current_profit * 100
-    #     # Use parabolic sar as absolute stoploss price
-    #     # stoploss_price = last_candle['psar_l']
-
-    #     # Convert absolute price to percentage relative to current_rate
-    #     # if stoploss_price < current_rate:
-    #     #     return (stoploss_price / current_rate) - 1
-    #     if profit_pct > 4:
-    #         return 0.01
+    use_custom_stoploss = True
+    def custom_stoploss(self, pair: str, trade: Trade, current_time: datetime, current_rate: float, current_profit: float, **kwargs):
+        dataframe, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+        last_candle = dataframe.iloc[-1].squeeze()
+        profit_pct = current_profit * 100
+        # Use parabolic sar as absolute stoploss price
+        # stoploss_price = last_candle['psar_l']
+        stoploss_price = last_candle["elderSafezoneLong"]
+        # Convert absolute price to percentage relative to current_rate
+        if trade.buy_tag != 'rbull_30m_downtrend' and stoploss_price < current_rate:
+            return (stoploss_price / current_rate) - 1
         
-    #     # return maximum stoploss value, keeping current stoploss price unchanged
-    #     return 1
+        # if profit_pct > 4:
+        #     return 0.01
+        
+        # return maximum stoploss value, keeping current stoploss price unchanged
+        return 1
 
     def getOscFlags(self):
         self.oscBuyFlags = {}
