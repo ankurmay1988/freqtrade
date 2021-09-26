@@ -28,8 +28,9 @@ RUN  apt-get update \
   && pip install --upgrade pip
 
 # Install TA-lib
-RUN cd /freqtrade \
-  && git clone -b stable-ankur --single-branch https://github.com/ankurmay1988/freqtrade.git .
+# RUN cd /freqtrade \
+#   && git clone -b stable-ankur --single-branch https://github.com/ankurmay1988/freqtrade.git .
+COPY --chown=ftuser:ftuser . /freqtrade/
 RUN cp build_helpers/* /tmp/
 RUN cd /tmp && /tmp/install_ta-lib.sh && rm -r /tmp/*ta-lib*
 ENV LD_LIBRARY_PATH /usr/local/lib
