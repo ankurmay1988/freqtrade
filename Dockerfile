@@ -45,7 +45,7 @@ COPY --from=python-deps /usr/local/lib /usr/local/lib
 ENV LD_LIBRARY_PATH /usr/local/lib
 
 COPY --from=python-deps --chown=ftuser:ftuser /home/ftuser/.local /home/ftuser/.local
-COPY --chown=ftuser:ftuser  --from=python-deps /freqtrade /freqtrade/
+COPY --from=python-deps --chown=ftuser:ftuser /freqtrade /freqtrade/
 
 USER ftuser
 
