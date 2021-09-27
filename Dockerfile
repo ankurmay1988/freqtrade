@@ -28,14 +28,15 @@ RUN  apt-get update \
   && pip install --upgrade pip
 
 # Install TA-lib
-# RUN cd /freqtrade \
-#   && git clone -b stable-ankur --single-branch https://github.com/ankurmay1988/freqtrade.git .
-COPY --chown=ftuser:ftuser . /freqtrade/
-RUN cp build_helpers/* /tmp/
+COPY build_helpers/* /tmp/
 RUN cd /tmp && /tmp/install_ta-lib.sh && rm -r /tmp/*ta-lib*
 ENV LD_LIBRARY_PATH /usr/local/lib
 
 # Install dependencies
+# RUN cd /freqtrade \
+#   && git clone -b stable-ankur --single-branch https://github.com/ankurmay1988/freqtrade.git .
+COPY --chown=ftuser:ftuser . /freqtrade/
+
 USER ftuser
 RUN  pip install --user --no-cache-dir numpy \
   && pip install --user --no-cache-dir -r requirements-hyperopt.txt
@@ -46,7 +47,7 @@ COPY --from=python-deps /usr/local/lib /usr/local/lib
 ENV LD_LIBRARY_PATH /usr/local/lib
 
 COPY --from=python-deps --chown=ftuser:ftuser /home/ftuser/.local /home/ftuser/.local
-COPY --from=python-deps --chown=ftuser:ftuser /freqtrade /freqtrade/
+COPY --from=python-deps --chown=ftuser:ftuser /freqtrade /
 
 USER ftuser
 
