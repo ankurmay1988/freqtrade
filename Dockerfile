@@ -28,7 +28,7 @@ RUN  apt-get update \
   && pip install --upgrade pip
 
 # Install TA-lib
-ADD --chown=ftuser:ftuser . /freqtrade
+COPY --chown=ftuser:ftuser ./ /freqtrade/
 RUN cp build_helpers/* /tmp/
 RUN cd /tmp && /tmp/install_ta-lib.sh && rm -r /tmp/*ta-lib*
 ENV LD_LIBRARY_PATH /usr/local/lib
@@ -47,7 +47,7 @@ COPY --from=python-deps /usr/local/lib /usr/local/lib
 ENV LD_LIBRARY_PATH /usr/local/lib
 
 COPY --from=python-deps --chown=ftuser:ftuser /home/ftuser/.local /home/ftuser/.local
-ADD --chown=ftuser:ftuser . /freqtrade
+COPY --chown=ftuser:ftuser ./ /freqtrade/
 
 USER ftuser
 
