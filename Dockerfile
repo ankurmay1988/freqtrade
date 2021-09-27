@@ -28,14 +28,14 @@ RUN  apt-get update \
   && pip install --upgrade pip
 
 # Install TA-lib
-COPY build_helpers/* /tmp/
+ADD --chown=ftuser:ftuser . /freqtrade
+RUN cp build_helpers/* /tmp/
 RUN cd /tmp && /tmp/install_ta-lib.sh && rm -r /tmp/*ta-lib*
 ENV LD_LIBRARY_PATH /usr/local/lib
 
 # Install dependencies
 # RUN cd /freqtrade \
 #   && git clone -b stable-ankur --single-branch https://github.com/ankurmay1988/freqtrade.git .
-ADD --chown=ftuser:ftuser . /freqtrade/
 
 USER ftuser
 RUN  pip install --user --no-cache-dir numpy \
@@ -47,7 +47,7 @@ COPY --from=python-deps /usr/local/lib /usr/local/lib
 ENV LD_LIBRARY_PATH /usr/local/lib
 
 COPY --from=python-deps --chown=ftuser:ftuser /home/ftuser/.local /home/ftuser/.local
-ADD --chown=ftuser:ftuser . /freqtrade/
+ADD --chown=ftuser:ftuser . /freqtrade
 
 USER ftuser
 
