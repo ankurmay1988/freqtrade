@@ -12,7 +12,7 @@
     "sell": 30,
     "unit": "minutes"
   },
-  "stoploss": -0.05,
+  "stoploss": -0.028,
   "order_types": {
     "buy": "market",
     "sell": "market",
@@ -63,7 +63,8 @@
       "ACM/USDT",
       "CELO/USDT",
       "ASR/USDT",
-      "JUV/USDT"
+      "JUV/USDT",
+      "DYDX/USDT"
     ],
     "pair_blacklist": [
       "BNB/BTC",

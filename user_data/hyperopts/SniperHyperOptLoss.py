@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from math import exp
 from typing import Dict
 
@@ -27,10 +27,13 @@ class SniperHyperOptLoss(IHyperOptLoss):
         Objective function, returns smaller number for better results
         """
         total_profit = results['profit_abs'].sum()
-        sell_loss = np.where(results['profit_abs'] < 0, 1, 0).sum()
-        sell_profit = np.where(results['profit_abs'] > 0, 1, 0).sum()
+        avg_profit_pct = results['profit_ratio'].mean() * 100
+        loss_trades = np.where(results['profit_abs'] < 0, 1, 0).sum()
+        win_trades = np.where(results['profit_abs'] > 0, 1, 0).sum()
+        timediff = max_date - min_date
+        loss_trades_normalized = 99999 if loss_trades > timediff.days else loss_trades
         avg_trade_duration = results['trade_duration'].mean()
-        profitAndLoss = total_profit / (sell_loss + 1)
-        winRatio = sell_profit / (sell_loss + 1)
-        result = -1 * (profitAndLoss * winRatio)
+        profitAndLoss = total_profit / (loss_trades_normalized + 1)
+        winRatio = win_trades / (loss_trades_normalized + 1)
+        result = -1 * winRatio * win_trades
         return result

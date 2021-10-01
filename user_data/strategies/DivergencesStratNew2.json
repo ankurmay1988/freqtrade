@@ -5,7 +5,7 @@
       "0": 100
     },
     "stoploss": {
-      "stoploss": -0.05
+      "stoploss": -0.028
     },
     "trailing": {
       "trailing_stop": false,
@@ -15,16 +15,16 @@
     },
     "buy": {
       "maxpp": 3,
-      "prd": 2,
-      "buy_flag": 328,
+      "prd": 3,
+      "buy_flag": 517,
       "buy_minsignals": 0
     },
     "sell": {
-      "sell_flag": 2,
-      "sell_minsignals": 0
+      "sell_flag": 63,
+      "sell_minsignals": 6
     },
     "protection": {}
   },
   "ft_stratparam_v": 1,
-  "export_time": "2021-09-25 23:41:04.579693+00:00"
+  "export_time": "2021-10-01 02:55:55.734275+00:00"
 }

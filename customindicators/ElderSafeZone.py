@@ -30,24 +30,24 @@ import numpy as np
 
 
 def ElderSafeZone(high: pd.Series, low: pd.Series, coeff: float = 2.5, lookbackLength: int = 15):
-    highdiff = high - high.shift(1)
+    highdiff = high.diff()
     higherHigh = highdiff > 0
     countShort = pd.Series(np.where(higherHigh, 1, 0))
     diffShort = pd.Series(np.where(higherHigh, highdiff, 0))
-    totalCountShort = countShort.rolling(lookbackLength).sum()
-    totalSumShort = diffShort.rolling(lookbackLength).sum()
-    penAvgShort = pd.Series(totalSumShort / totalCountShort)
-    safetyShort = high.shift(1) + (penAvgShort.shift(1) * coeff)
+    totalCountShort = countShort.rolling(window=lookbackLength, min_periods=1).sum()
+    totalSumShort = diffShort.rolling(window=lookbackLength, min_periods=1).sum()
+    penAvgShort = (totalSumShort / totalCountShort).round(3)
+    safetyShort = (high.shift(1) + (penAvgShort.shift(1) * coeff)).round(3)
     finalSafetyShort = safetyShort.rolling(3).min()
     
-    lowdiff = low - low.shift(1)
+    lowdiff = low.diff()
     lowerLow = lowdiff < 0
     count = pd.Series(np.where(lowerLow, 1, 0))
     diff = pd.Series(np.where(lowerLow, lowdiff, 0))
-    totalCount = count.rolling(lookbackLength).sum()
-    totalSum = diff.rolling(lookbackLength).sum()
-    penAvg = pd.Series(totalSum / totalCount)
-    safety = low.shift(1) - (penAvg.shift(1) * coeff)
+    totalCount = count.rolling(window=lookbackLength, min_periods=1).sum()
+    totalSum = diff.rolling(window=lookbackLength, min_periods=1).sum()
+    penAvg = (totalSum / totalCount).round(3)
+    safety = (low.shift(1) - (penAvg.shift(1) * coeff)).round(3)
     finalSafetyLong = safety.rolling(3).max()
     
     return (finalSafetyLong, finalSafetyShort)
