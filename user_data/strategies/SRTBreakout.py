@@ -3,6 +3,8 @@
 # isort: skip_file
 # --- Do not remove these libs ---
 
+# Support-Resistance-Trendline Breakout Strategy
+
 from freqtrade.enums.runmode import RunMode
 from customindicators import ElderSafeZone, WaveTrendOscillator
 from datetime import datetime, timedelta
@@ -20,10 +22,11 @@ from freqtrade.persistence import Trade
 # Add your lib to import here
 import pandas_ta as pta
 import customindicators as ci
+from findiff import FinDiff
 # This class is a sample. Feel free to customize it.
 
 
-class DivStratNew2(IStrategy):
+class SRTBreakout(IStrategy):
     """
     https://www.freqtrade.io/en/latest/strategy-customization/
 
@@ -53,41 +56,10 @@ class DivStratNew2(IStrategy):
         "0": 100
     }
 
-    osc_flags = {
-        'stk': 2 ** 0,
-        'mom': 2 ** 1,
-        'mfi': 2 ** 2,
-        'rsi': 2 ** 3,
-        'cci': 2 ** 4,
-        'cmf': 2 ** 5,
-        'macd': 2 ** 6,
-        'uo': 2 ** 7,
-        'obv': 2 ** 8,
-        'wt2': 2 ** 9
-    }
-
-    oscillators = ci.DictObj(osc_flags)
-    maxflagnum = (2 ** len(osc_flags)) - 1
-
     # Hyperoptable parameters
-    # Source for Pivot Points
-    source = CategoricalParameter(default="close", categories=["close", "high/low"])
     # Maximum Pivot Points to Check
     maxpp = IntParameter(default=3, low=1, high=10,
                          space='buy', load=True, optimize=True)
-
-    # Buy osc signal flags
-    buy_flag = IntParameter(default=maxflagnum, low=0, high=maxflagnum,
-                            space='buy', load=True, optimize=True)
-    # Sell osc signal flags
-    sell_flag = IntParameter(default=maxflagnum, low=0, high=maxflagnum,
-                             space='sell', load=True, optimize=True)
-
-    buy_minsignals = IntParameter(default=1, low=0, high=len(osc_flags),
-                                  space='buy', load=True, optimize=True)
-
-    sell_minsignals = IntParameter(default=1, low=0, high=len(osc_flags),
-                                   space='sell', load=True, optimize=True)
 
     # Optimal timeframe for the strategy.
     timeframe = '30m'
@@ -155,51 +127,12 @@ class DivStratNew2(IStrategy):
         """
         self.getOscFlags()
     
-        hlc3 = dataframe.ta.hlc3()
-        rsi = dataframe.ta.rsi(14).round(2)
-        macd_df = dataframe.ta.macd()
-        macd, deltamacd, signalmacd = macd_df.iloc[:, 0].round(2), macd_df.iloc[:, 1].round(2), macd_df.iloc[:, 2].round(2)
-        mom = dataframe.ta.mom(10).round(2)
-        cci = dataframe.ta.cci(10).round(2)
-        obv = dataframe.ta.obv().round(2)
-        stoch_df = dataframe.ta.stoch()
-        stk, std = stoch_df.iloc[:, 0].round(2), stoch_df.iloc[:, 1].round(2)
-        
-        cmf = dataframe.ta.cmf().round(2)
-        mfi = dataframe.ta.mfi(14).round(2)
-        uo = dataframe.ta.uo().round(2)
-        ema200 = dataframe.ta.ema(200).round(2)
-        sma50 = dataframe.ta.sma(50).round(2)
-        stochrsi_df = dataframe.ta.stochrsi()
-        strsik, strsid =  stochrsi_df.iloc[:, 0].round(2), stochrsi_df.iloc[:, 1].round(2)
-        longStop, shortStop = ElderSafeZone(dataframe['high'], dataframe['low'], 5)
-        wt1, wt2 = WaveTrendOscillator(hlc3)
-        wt1 = wt1.round(2)
-        wt2 = wt2.round(2)
-        
-        
+        hlc3 = pd.Series(dataframe.ta.hlc3())
+        d_dx = FinDiff(0, 1, 1)
+        d2_dx2 = FinDiff(0, 1, 2)
+        pivots = hlc3.loc[d_dx(hlc3) == 0]
         dataframe = pd.concat([dataframe, 
-            hlc3.rename('hlc3'),
-            rsi.rename('rsi'),
-            macd.rename('macd'),
-            deltamacd.rename('deltamacd'),
-            signalmacd.rename('signalmacd'),
-            mom.rename('mom'),
-            cci.rename('cci'),
-            obv.rename('obv'),
-            stk.rename('stk'),
-            std.rename('std'),
-            cmf.rename('cmf'),
-            mfi.rename('mfi'),
-            uo.rename('uo'),
-            ema200.rename('ema200'),
-            sma50.rename('sma50'),
-            strsik.rename('strsik'),
-            strsid.rename('strsid'),
-            longStop.rename('elderSafezoneLong'),
-            shortStop.rename('elderSafezoneShort'),
-            wt1.rename('wt1'),
-            wt2.rename('wt2'),
+            hlc3.rename('hlc3')
         ], axis=1)
         
         priceSource = dataframe['close'] if self.source.value == 'close' else dataframe['close']

@@ -14,16 +14,16 @@
       "trailing_only_offset_is_reached": false
     },
     "buy": {
-      "buy_flag": 349,
-      "buy_minsignals": 1,
+      "buy_flag": 718,
+      "buy_minsignals": 2,
       "maxpp": 3
     },
     "sell": {
-      "sell_flag": 101,
-      "sell_minsignals": 3
+      "sell_flag": 270,
+      "sell_minsignals": 7
     },
     "protection": {}
   },
   "ft_stratparam_v": 1,
-  "export_time": "2021-10-13 19:31:09.151724+00:00"
+  "export_time": "2021-10-13 19:27:27.828181+00:00"
 }

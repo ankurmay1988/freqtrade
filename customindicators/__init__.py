@@ -1,4 +1,6 @@
-from customindicators.pivotpoint import PivotPoint_scipy as PivotPoint
+from customindicators.pivotpoint import PivotPoint_scipy as PivotPointScipy
+from customindicators.pivotpoint import PivotPoint
 from customindicators.DictObj import DictObj
 from customindicators.ElderSafeZone import ElderSafeZone
 from customindicators.WaveTrend import WaveTrendOscillator
+from customindicators.DMI import DMI
