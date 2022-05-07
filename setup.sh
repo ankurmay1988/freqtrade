@@ -90,7 +90,7 @@ function updateenv() {
     echo "pip install completed"
     echo
     if [[ $dev =~ ^[Yy]$ ]]; then
-        ${PYTHON} -m pre-commit install
+        ${PYTHON} -m pre_commit install
         if [ $? -ne 0 ]; then
             echo "Failed installing pre-commit"
             exit 1
@@ -155,7 +155,7 @@ function install_macos() {
 # Install bot Debian_ubuntu
 function install_debian() {
     sudo apt-get update
-    sudo apt-get install -y gcc build-essential autoconf libtool pkg-config make wget git $(echo lib${PYTHON}-dev ${PYTHON}-venv)
+    sudo apt-get install -y gcc build-essential autoconf libtool pkg-config make wget git curl $(echo lib${PYTHON}-dev ${PYTHON}-venv)
     install_talib
 }
 

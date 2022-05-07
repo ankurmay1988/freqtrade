@@ -3,7 +3,6 @@ IStrategy interface
 This module defines the interface to apply for strategies
 """
 import logging
-import warnings
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple, Union
@@ -44,14 +43,11 @@ class IStrategy(ABC, HyperStrategyMixin):
     """
     # Strategy interface version
     # Default to version 2
-    # Version 1 is the initial interface without metadata dict
+    # Version 1 is the initial interface without metadata dict - deprecated and no longer supported.
     # Version 2 populate_* include metadata dict
     # Version 3 - First version with short and leverage support
     INTERFACE_VERSION: int = 3
 
-    _populate_fun_len: int = 0
-    _buy_fun_len: int = 0
-    _sell_fun_len: int = 0
     _ft_params_from_file: Dict
     # associated minimal roi
     minimal_roi: Dict = {}
@@ -114,7 +110,7 @@ class IStrategy(ABC, HyperStrategyMixin):
     # Class level variables (intentional) containing
     # the dataprovider (dp) (access to other candles, historic data, ...)
     # and wallets - access to the current balance.
-    dp: Optional[DataProvider]
+    dp: DataProvider
     wallets: Optional[Wallets] = None
     # Filled from configuration
     stake_currency: str
@@ -196,6 +192,13 @@ class IStrategy(ABC, HyperStrategyMixin):
         :return: DataFrame with exit columns populated
         """
         return self.populate_sell_trend(dataframe, metadata)
+
+    def bot_start(self, **kwargs) -> None:
+        """
+        Called only once after bot instantiation.
+        :param **kwargs: Ensure to keep this here so updates to this won't break your strategy.
+        """
+        pass
 
     def bot_loop_start(self, **kwargs) -> None:
         """
@@ -359,7 +362,7 @@ class IStrategy(ABC, HyperStrategyMixin):
 
     def custom_exit_price(self, pair: str, trade: Trade,
                           current_time: datetime, proposed_rate: float,
-                          current_profit: float, **kwargs) -> float:
+                          current_profit: float, exit_tag: Optional[str], **kwargs) -> float:
         """
         Custom exit price logic, returning the new exit price.
 
@@ -372,6 +375,7 @@ class IStrategy(ABC, HyperStrategyMixin):
         :param current_time: datetime object, containing the current datetime
         :param proposed_rate: Rate, calculated based on pricing settings in exit_pricing.
         :param current_profit: Current profit (as ratio), calculated based on current_rate.
+        :param exit_tag: Exit reason.
         :param **kwargs: Ensure to keep this here so updates to this won't break your strategy.
         :return float: New exit price value if provided
         """
@@ -541,7 +545,7 @@ class IStrategy(ABC, HyperStrategyMixin):
         """
         return self.__class__.__name__
 
-    def lock_pair(self, pair: str, until: datetime, reason: str = None) -> None:
+    def lock_pair(self, pair: str, until: datetime, reason: str = None, side: str = '*') -> None:
         """
         Locks pair until a given timestamp happens.
         Locked pairs are not analyzed, and are prevented from opening new trades.
@@ -551,8 +555,9 @@ class IStrategy(ABC, HyperStrategyMixin):
         :param until: datetime in UTC until the pair should be blocked from opening new trades.
                 Needs to be timezone aware `datetime.now(timezone.utc)`
         :param reason: Optional string explaining why the pair was locked.
+        :param side: Side to check, can be long, short or '*'
         """
-        PairLocks.lock_pair(pair, until, reason)
+        PairLocks.lock_pair(pair, until, reason, side=side)
 
     def unlock_pair(self, pair: str) -> None:
         """
@@ -572,7 +577,7 @@ class IStrategy(ABC, HyperStrategyMixin):
         """
         PairLocks.unlock_reason(reason, datetime.now(timezone.utc))
 
-    def is_pair_locked(self, pair: str, candle_date: datetime = None) -> bool:
+    def is_pair_locked(self, pair: str, *, candle_date: datetime = None, side: str = '*') -> bool:
         """
         Checks if a pair is currently locked
         The 2nd, optional parameter ensures that locks are applied until the new candle arrives,
@@ -580,15 +585,16 @@ class IStrategy(ABC, HyperStrategyMixin):
         of 2 seconds for an entry order to happen on an old signal.
         :param pair: "Pair to check"
         :param candle_date: Date of the last candle. Optional, defaults to current date
+        :param side: Side to check, can be long, short or '*'
         :returns: locking state of the pair in question.
         """
 
         if not candle_date:
             # Simple call ...
-            return PairLocks.is_pair_locked(pair)
+            return PairLocks.is_pair_locked(pair, side=side)
         else:
             lock_time = timeframe_to_next_date(self.timeframe, candle_date)
-            return PairLocks.is_pair_locked(pair, lock_time)
+            return PairLocks.is_pair_locked(pair, lock_time, side=side)
 
     def analyze_ticker(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         """
@@ -1090,12 +1096,7 @@ class IStrategy(ABC, HyperStrategyMixin):
             dataframe = _create_and_merge_informative_pair(
                 self, dataframe, metadata, inf_data, populate_fn)
 
-        if self._populate_fun_len == 2:
-            warnings.warn("deprecated - check out the Sample strategy to see "
-                          "the current function headers!", DeprecationWarning)
-            return self.populate_indicators(dataframe)  # type: ignore
-        else:
-            return self.populate_indicators(dataframe, metadata)
+        return self.populate_indicators(dataframe, metadata)
 
     def advise_entry(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
         """
@@ -1109,12 +1110,7 @@ class IStrategy(ABC, HyperStrategyMixin):
 
         logger.debug(f"Populating enter signals for pair {metadata.get('pair')}.")
 
-        if self._buy_fun_len == 2:
-            warnings.warn("deprecated - check out the Sample strategy to see "
-                          "the current function headers!", DeprecationWarning)
-            df = self.populate_buy_trend(dataframe)  # type: ignore
-        else:
-            df = self.populate_entry_trend(dataframe, metadata)
+        df = self.populate_entry_trend(dataframe, metadata)
         if 'enter_long' not in df.columns:
             df = df.rename({'buy': 'enter_long', 'buy_tag': 'enter_tag'}, axis='columns')
 
@@ -1129,14 +1125,8 @@ class IStrategy(ABC, HyperStrategyMixin):
             currently traded pair
         :return: DataFrame with exit column
         """
-
         logger.debug(f"Populating exit signals for pair {metadata.get('pair')}.")
-        if self._sell_fun_len == 2:
-            warnings.warn("deprecated - check out the Sample strategy to see "
-                          "the current function headers!", DeprecationWarning)
-            df = self.populate_sell_trend(dataframe)  # type: ignore
-        else:
-            df = self.populate_exit_trend(dataframe, metadata)
+        df = self.populate_exit_trend(dataframe, metadata)
         if 'exit_long' not in df.columns:
             df = df.rename({'sell': 'exit_long'}, axis='columns')
         return df

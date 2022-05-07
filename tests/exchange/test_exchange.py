@@ -99,6 +99,8 @@ def test_remove_credentials(default_conf, caplog) -> None:
 def test_init_ccxt_kwargs(default_conf, mocker, caplog):
     mocker.patch('freqtrade.exchange.Exchange._load_markets', MagicMock(return_value={}))
     mocker.patch('freqtrade.exchange.Exchange.validate_stakecurrency')
+    aei_mock = mocker.patch('freqtrade.exchange.Exchange.additional_exchange_init')
+
     caplog.set_level(logging.INFO)
     conf = copy.deepcopy(default_conf)
     conf['exchange']['ccxt_async_config'] = {'aiohttp_trust_env': True, 'asyncio_loop': True}
@@ -108,6 +110,7 @@ def test_init_ccxt_kwargs(default_conf, mocker, caplog):
         caplog)
     assert ex._api_async.aiohttp_trust_env
     assert not ex._api.aiohttp_trust_env
+    assert aei_mock.call_count == 1
 
     # Reset logging and config
     caplog.clear()
@@ -909,7 +912,7 @@ def test_validate_timeframes_emulated_ohlcv_1(default_conf, mocker):
     mocker.patch('freqtrade.exchange.Exchange.validate_stakecurrency')
     with pytest.raises(OperationalException,
                        match=r'The ccxt library does not provide the list of timeframes '
-                             r'for the exchange ".*" and this exchange '
+                             r'for the exchange .* and this exchange '
                              r'is therefore not supported. *'):
         Exchange(default_conf)
 
@@ -930,7 +933,7 @@ def test_validate_timeframes_emulated_ohlcvi_2(default_conf, mocker):
     mocker.patch('freqtrade.exchange.Exchange.validate_stakecurrency')
     with pytest.raises(OperationalException,
                        match=r'The ccxt library does not provide the list of timeframes '
-                             r'for the exchange ".*" and this exchange '
+                             r'for the exchange .* and this exchange '
                              r'is therefore not supported. *'):
         Exchange(default_conf)
 
@@ -1982,6 +1985,20 @@ async def test__async_get_historic_ohlcv(default_conf, mocker, caplog, exchange_
     # Call with very old timestamp - causes tons of requests
     assert exchange._api_async.fetch_ohlcv.call_count > 200
     assert res[0] == ohlcv[0]
+
+    exchange._api_async.fetch_ohlcv.reset_mock()
+    end_ts = 1_500_500_000_000
+    start_ts = 1_500_000_000_000
+    respair, restf, _, res = await exchange._async_get_historic_ohlcv(
+        pair, "5m", since_ms=start_ts, candle_type=candle_type, is_new_pair=False,
+        until_ms=end_ts
+        )
+    # Required candles
+    candles = (end_ts - start_ts) / 300_000
+    exp = candles // exchange.ohlcv_candle_limit('5m') + 1
+
+    # Depending on the exchange, this should be called between 1 and 6 times.
+    assert exchange._api_async.fetch_ohlcv.call_count == exp
 
 
 @pytest.mark.parametrize('candle_type', [CandleType.FUTURES, CandleType.MARK, CandleType.SPOT])
@@ -4151,7 +4168,10 @@ def test__order_contracts_to_amount(
             'cost': 60.0,
             'filled': None,
             'remaining': 30.0,
-            'fee': 0.06,
+            'fee': {
+                'currency': 'USDT',
+                'cost': 0.06,
+            },
             'fees': [{
                 'currency': 'USDT',
                 'cost': 0.06,
@@ -4178,7 +4198,10 @@ def test__order_contracts_to_amount(
             'cost': 80.0,
             'filled': None,
             'remaining': 40.0,
-            'fee': 0.08,
+            'fee': {
+                'currency': 'USDT',
+                'cost': 0.08,
+            },
             'fees': [{
                 'currency': 'USDT',
                 'cost': 0.08,
@@ -4212,12 +4235,18 @@ def test__order_contracts_to_amount(
             'info': {},
         },
     ]
+    order1_bef = orders[0]
+    order2_bef = orders[1]
+    order1 = exchange._order_contracts_to_amount(deepcopy(order1_bef))
+    order2 = exchange._order_contracts_to_amount(deepcopy(order2_bef))
+    assert order1['amount'] == order1_bef['amount'] * contract_size
+    assert order1['cost'] == order1_bef['cost'] * contract_size
 
-    order1 = exchange._order_contracts_to_amount(orders[0])
-    order2 = exchange._order_contracts_to_amount(orders[1])
+    assert order2['amount'] == order2_bef['amount'] * contract_size
+    assert order2['cost'] == order2_bef['cost'] * contract_size
+
+    # Don't fail
     exchange._order_contracts_to_amount(orders[2])
-    assert order1['amount'] == 30.0 * contract_size
-    assert order2['amount'] == 40.0 * contract_size
 
 
 @pytest.mark.parametrize('pair,contract_size,trading_mode', [
@@ -4732,8 +4761,10 @@ def test__get_params(mocker, default_conf, exchange_name):
 
     if exchange_name == 'okx':
         params2['tdMode'] = 'isolated'
+        params2['posSide'] = 'net'
 
     assert exchange._get_params(
+        side="buy",
         ordertype='market',
         reduceOnly=False,
         time_in_force='gtc',
@@ -4741,6 +4772,7 @@ def test__get_params(mocker, default_conf, exchange_name):
     ) == params1
 
     assert exchange._get_params(
+        side="buy",
         ordertype='market',
         reduceOnly=False,
         time_in_force='ioc',
@@ -4748,6 +4780,7 @@ def test__get_params(mocker, default_conf, exchange_name):
     ) == params1
 
     assert exchange._get_params(
+        side="buy",
         ordertype='limit',
         reduceOnly=False,
         time_in_force='gtc',
@@ -4760,6 +4793,7 @@ def test__get_params(mocker, default_conf, exchange_name):
     exchange._params = {'test': True}
 
     assert exchange._get_params(
+        side="buy",
         ordertype='limit',
         reduceOnly=True,
         time_in_force='ioc',

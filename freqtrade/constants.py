@@ -14,7 +14,7 @@ PROCESS_THROTTLE_SECS = 5  # sec
 HYPEROPT_EPOCH = 100  # epochs
 RETRY_TIMEOUT = 30  # sec
 TIMEOUT_UNITS = ['minutes', 'seconds']
-EXPORT_OPTIONS = ['none', 'trades']
+EXPORT_OPTIONS = ['none', 'trades', 'signals']
 DEFAULT_DB_PROD_URL = 'sqlite:///tradesv3.sqlite'
 DEFAULT_DB_DRYRUN_URL = 'sqlite:///tradesv3.dryrun.sqlite'
 UNLIMITED_STAKE_AMOUNT = 'unlimited'
@@ -28,7 +28,8 @@ HYPEROPT_LOSS_BUILTIN = ['ShortTradeDurHyperOptLoss', 'OnlyProfitHyperOptLoss',
                          'SharpeHyperOptLoss', 'SharpeHyperOptLossDaily',
                          'SortinoHyperOptLoss', 'SortinoHyperOptLossDaily',
                          'CalmarHyperOptLoss',
-                         'MaxDrawDownHyperOptLoss', 'ProfitDrawDownHyperOptLoss']
+                         'MaxDrawDownHyperOptLoss', 'MaxDrawDownRelativeHyperOptLoss',
+                         'ProfitDrawDownHyperOptLoss']
 AVAILABLE_PAIRLISTS = ['StaticPairList', 'VolumePairList',
                        'AgeFilter', 'OffsetFilter', 'PerformanceFilter',
                        'PrecisionFilter', 'PriceFilter', 'RangeStabilityFilter',
@@ -462,6 +463,10 @@ SCHEMA_BACKTEST_REQUIRED = [
     'dataformat_ohlcv',
     'dataformat_trades',
 ]
+SCHEMA_BACKTEST_REQUIRED_FINAL = SCHEMA_BACKTEST_REQUIRED + [
+    'stoploss',
+    'minimal_roi',
+]
 
 SCHEMA_MINIMAL_REQUIRED = [
     'exchange',
@@ -489,3 +494,4 @@ TradeList = List[List]
 
 LongShort = Literal['long', 'short']
 EntryExit = Literal['entry', 'exit']
+BuySell = Literal['buy', 'sell']

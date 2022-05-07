@@ -9,6 +9,7 @@ import logging
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 from math import ceil
+from threading import Lock
 from typing import Any, Coroutine, Dict, List, Literal, Optional, Tuple, Union
 
 import arrow
@@ -19,7 +20,7 @@ from ccxt.base.decimal_to_precision import (ROUND_DOWN, ROUND_UP, TICK_SIZE, TRU
                                             decimal_to_precision)
 from pandas import DataFrame
 
-from freqtrade.constants import (DEFAULT_AMOUNT_RESERVE_PERCENT, NON_OPEN_EXCHANGE_STATES,
+from freqtrade.constants import (DEFAULT_AMOUNT_RESERVE_PERCENT, NON_OPEN_EXCHANGE_STATES, BuySell,
                                  EntryExit, ListPairsWithTimeframes, PairWithTimeframe)
 from freqtrade.data.converter import ohlcv_to_dataframe, trades_dict_to_list
 from freqtrade.enums import OPTIMIZE_MODES, CandleType, MarginMode, TradingMode
@@ -64,6 +65,7 @@ class Exchange:
         "ohlcv_params": {},
         "ohlcv_candle_limit": 500,
         "ohlcv_partial_candle": True,
+        "ohlcv_require_since": False,
         # Check https://github.com/ccxt/ccxt/issues/10767 for removal of ohlcv_volume_currency
         "ohlcv_volume_currency": "base",  # "base" or "quote"
         "tickers_have_quoteVolume": True,
@@ -95,6 +97,9 @@ class Exchange:
         self._markets: Dict = {}
         self._trading_fees: Dict[str, Any] = {}
         self._leverage_tiers: Dict[str, List[Dict]] = {}
+        # Lock event loop. This is necessary to avoid race-conditions when using force* commands
+        # Due to funding fee fetching.
+        self._loop_lock = Lock()
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
         self._config: Dict = {}
@@ -166,7 +171,7 @@ class Exchange:
         self._api_async = self._init_ccxt(
             exchange_config, ccxt_async, ccxt_kwargs=ccxt_async_config)
 
-        logger.info('Using Exchange "%s"', self.name)
+        logger.info(f'Using Exchange "{self.name}"')
 
         if validate:
             # Check if timeframe is available
@@ -193,6 +198,7 @@ class Exchange:
 
         if self.trading_mode != TradingMode.SPOT:
             self.fill_leverage_tiers()
+        self.additional_exchange_init()
 
     def __del__(self):
         """
@@ -289,6 +295,14 @@ class Exchange:
         """exchange ccxt precisionMode"""
         return self._api.precisionMode
 
+    def additional_exchange_init(self) -> None:
+        """
+        Additional exchange initialization logic.
+        .api will be available at this point.
+        Must be overridden in child methods if required.
+        """
+        pass
+
     def _log_exchange_response(self, endpoint, response) -> None:
         """ Log exchange responses """
         if self.log_responses:
@@ -368,6 +382,9 @@ class Exchange:
         return (
             market.get('quote', None) is not None
             and market.get('base', None) is not None
+            and (self.precisionMode != TICK_SIZE
+                 # Too low precision will falsify calculations
+                 or market.get('precision', {}).get('price', None) > 1e-11)
             and ((self.trading_mode == TradingMode.SPOT and self.market_is_spot(market))
                  or (self.trading_mode == TradingMode.MARGIN and self.market_is_margin(market))
                  or (self.trading_mode == TradingMode.FUTURES and self.market_is_future(market)))
@@ -551,7 +568,7 @@ class Exchange:
             # Therefore we also show that.
             raise OperationalException(
                 f"The ccxt library does not provide the list of timeframes "
-                f"for the exchange \"{self.name}\" and this exchange "
+                f"for the exchange {self.name} and this exchange "
                 f"is therefore not supported. ccxt fetchOHLCV: {self.exchange_has('fetchOHLCV')}")
 
         if timeframe and (timeframe not in self.timeframes):
@@ -781,7 +798,9 @@ class Exchange:
                              rate: float, leverage: float, params: Dict = {},
                              stop_loss: bool = False) -> Dict[str, Any]:
         order_id = f'dry_run_{side}_{datetime.now().timestamp()}'
-        _amount = self.amount_to_precision(pair, amount)
+        # Rounding here must respect to contract sizes
+        _amount = self._contracts_to_amount(
+            pair, self.amount_to_precision(pair, self._amount_to_contracts(pair, amount)))
         dry_order: Dict[str, Any] = {
             'id': order_id,
             'symbol': pair,
@@ -927,13 +946,14 @@ class Exchange:
 
     # Order handling
 
-    def _lev_prep(self, pair: str, leverage: float, side: str):
+    def _lev_prep(self, pair: str, leverage: float, side: BuySell):
         if self.trading_mode != TradingMode.SPOT:
             self.set_margin_mode(pair, self.margin_mode)
             self._set_leverage(leverage, pair)
 
     def _get_params(
         self,
+        side: BuySell,
         ordertype: str,
         leverage: float,
         reduceOnly: bool,
@@ -952,7 +972,7 @@ class Exchange:
         *,
         pair: str,
         ordertype: str,
-        side: str,
+        side: BuySell,
         amount: float,
         rate: float,
         leverage: float,
@@ -963,7 +983,7 @@ class Exchange:
             dry_order = self.create_dry_run_order(pair, ordertype, side, amount, rate, leverage)
             return dry_order
 
-        params = self._get_params(ordertype, leverage, reduceOnly, time_in_force)
+        params = self._get_params(side, ordertype, leverage, reduceOnly, time_in_force)
 
         try:
             # Set the precision for amount and price(rate) as accepted by the exchange
@@ -1048,7 +1068,7 @@ class Exchange:
 
     @retrier(retries=0)
     def stoploss(self, pair: str, amount: float, stop_price: float, order_types: Dict,
-                 side: str, leverage: float) -> Dict:
+                 side: BuySell, leverage: float) -> Dict:
         """
         creates a stoploss order.
         requires `_ft_has['stoploss_order_types']` to be set as a dict mapping limit and market
@@ -1603,7 +1623,9 @@ class Exchange:
                 order['fee']['cost'] / safe_value_fallback2(order, order, 'filled', 'amount'), 8)
         elif fee_curr in self.get_pair_quote_currency(order['symbol']):
             # Quote currency - divide by cost
-            return round(order['fee']['cost'] / order['cost'], 8) if order['cost'] else None
+            return round(self._contracts_to_amount(
+                order['symbol'], order['fee']['cost']) / order['cost'],
+                8) if order['cost'] else None
         else:
             # If Fee currency is a different currency
             if not order['cost']:
@@ -1618,7 +1640,8 @@ class Exchange:
                 fee_to_quote_rate = self._config['exchange'].get('unknown_fee_rate', None)
                 if not fee_to_quote_rate:
                     return None
-            return round((order['fee']['cost'] * fee_to_quote_rate) / order['cost'], 8)
+            return round((self._contracts_to_amount(
+                order['symbol'], order['fee']['cost']) * fee_to_quote_rate) / order['cost'], 8)
 
     def extract_cost_curr_rate(self, order: Dict) -> Tuple[float, str, Optional[float]]:
         """
@@ -1635,7 +1658,8 @@ class Exchange:
 
     def get_historic_ohlcv(self, pair: str, timeframe: str,
                            since_ms: int, candle_type: CandleType,
-                           is_new_pair: bool = False) -> List:
+                           is_new_pair: bool = False,
+                           until_ms: int = None) -> List:
         """
         Get candle history using asyncio and returns the list of candles.
         Handles all async work for this.
@@ -1643,13 +1667,14 @@ class Exchange:
         :param pair: Pair to download
         :param timeframe: Timeframe to get data for
         :param since_ms: Timestamp in milliseconds to get history from
+        :param until_ms: Timestamp in milliseconds to get history up to
         :param candle_type: '', mark, index, premiumIndex, or funding_rate
         :return: List with candle (OHLCV) data
         """
         pair, _, _, data = self.loop.run_until_complete(
             self._async_get_historic_ohlcv(pair=pair, timeframe=timeframe,
-                                           since_ms=since_ms, is_new_pair=is_new_pair,
-                                           candle_type=candle_type))
+                                           since_ms=since_ms, until_ms=until_ms,
+                                           is_new_pair=is_new_pair, candle_type=candle_type))
         logger.info(f"Downloaded data for {pair} with length {len(data)}.")
         return data
 
@@ -1670,6 +1695,7 @@ class Exchange:
     async def _async_get_historic_ohlcv(self, pair: str, timeframe: str,
                                         since_ms: int, candle_type: CandleType,
                                         is_new_pair: bool = False, raise_: bool = False,
+                                        until_ms: int = None
                                         ) -> Tuple[str, str, str, List]:
         """
         Download historic ohlcv
@@ -1685,7 +1711,7 @@ class Exchange:
         )
         input_coroutines = [self._async_get_candle_history(
             pair, timeframe, candle_type, since) for since in
-            range(since_ms, arrow.utcnow().int_timestamp * 1000, one_call)]
+            range(since_ms, until_ms or (arrow.utcnow().int_timestamp * 1000), one_call)]
 
         data: List = []
         # Chunk requests into batches of 100 to avoid overwelming ccxt Throttling
@@ -1710,7 +1736,8 @@ class Exchange:
     def _build_coroutine(self, pair: str, timeframe: str, candle_type: CandleType,
                          since_ms: Optional[int]) -> Coroutine:
 
-        if not since_ms and self.required_candle_call_count > 1:
+        if (not since_ms
+                and (self._ft_has["ohlcv_require_since"] or self.required_candle_call_count > 1)):
             # Multiple calls for one pair - to get more history
             one_call = timeframe_to_msecs(timeframe) * self.ohlcv_candle_limit(timeframe)
             move_to = one_call * self.required_candle_call_count
@@ -1770,7 +1797,8 @@ class Exchange:
             async def gather_stuff():
                 return await asyncio.gather(*input_coro, return_exceptions=True)
 
-            results = self.loop.run_until_complete(gather_stuff())
+            with self._loop_lock:
+                results = self.loop.run_until_complete(gather_stuff())
 
             for res in results:
                 if isinstance(res, Exception):
@@ -1829,17 +1857,18 @@ class Exchange:
                 pair, timeframe, since_ms, s
             )
             params = deepcopy(self._ft_has.get('ohlcv_params', {}))
+            candle_limit = self.ohlcv_candle_limit(timeframe)
             if candle_type != CandleType.SPOT:
                 params.update({'price': candle_type})
             if candle_type != CandleType.FUNDING_RATE:
                 data = await self._api_async.fetch_ohlcv(
                     pair, timeframe=timeframe, since=since_ms,
-                    limit=self.ohlcv_candle_limit(timeframe), params=params)
+                    limit=candle_limit, params=params)
             else:
                 # Funding rate
                 data = await self._api_async.fetch_funding_rate_history(
                     pair, since=since_ms,
-                    limit=self.ohlcv_candle_limit(timeframe))
+                    limit=candle_limit)
                 # Convert funding rate to candle pattern
                 data = [[x['timestamp'], x['fundingRate'], 0, 0, 0, 0] for x in data]
             # Some exchanges sort OHLCV in ASC order and others in DESC.
@@ -2026,9 +2055,10 @@ class Exchange:
         if not self.exchange_has("fetchTrades"):
             raise OperationalException("This exchange does not support downloading Trades.")
 
-        return self.loop.run_until_complete(
-            self._async_get_trade_history(pair=pair, since=since,
-                                          until=until, from_id=from_id))
+        with self._loop_lock:
+            return self.loop.run_until_complete(
+                self._async_get_trade_history(pair=pair, since=since,
+                                              until=until, from_id=from_id))
 
     @retrier
     def _get_funding_fees_from_exchange(self, pair: str, since: Union[datetime, int]) -> float:
