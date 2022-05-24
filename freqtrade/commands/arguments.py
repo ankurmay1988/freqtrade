@@ -189,7 +189,7 @@ class Arguments:
                                         start_install_ui, start_list_data, start_list_exchanges,
                                         start_list_markets, start_list_strategies,
                                         start_list_timeframes, start_new_config, start_new_strategy,
-                                        start_plot_dataframe, start_plot_profit, start_show_trades,
+                                        start_plot_dataframe, start_plot_tv_dataframe, start_plot_profit, start_show_trades,
                                         start_test_pairlist, start_trading, start_webserver)
 
         subparsers = self.parser.add_subparsers(dest='command',
@@ -401,6 +401,15 @@ class Arguments:
         plot_dataframe_cmd.set_defaults(func=start_plot_dataframe)
         self._build_args(optionlist=ARGS_PLOT_DATAFRAME, parser=plot_dataframe_cmd)
 
+        # Add Tradingview Plotting subcommand
+        plot_tv_dataframe_cmd = subparsers.add_parser(
+            'plot-tv-dataframe',
+            help='Plot candles with indicators on a tradingview chart',
+            parents=[_common_parser, _strategy_parser],
+        )
+        plot_tv_dataframe_cmd.set_defaults(func=start_plot_tv_dataframe)
+        self._build_args(optionlist=ARGS_PLOT_DATAFRAME, parser=plot_tv_dataframe_cmd)
+        
         # Plot profit
         plot_profit_cmd = subparsers.add_parser(
             'plot-profit',

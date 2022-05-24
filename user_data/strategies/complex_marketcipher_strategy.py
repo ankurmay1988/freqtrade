@@ -11,7 +11,6 @@ from freqtrade.strategy import CategoricalParameter, DecimalParameter, IntParame
 
 # --------------------------------
 # Add your lib to import here
-import ta.wrapper as ta
 import freqtrade.vendor.qtpylib.indicators as qtpylib
 
 

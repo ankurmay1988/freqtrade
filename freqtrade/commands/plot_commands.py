@@ -23,6 +23,16 @@ def start_plot_dataframe(args: Dict[str, Any]) -> None:
 
     load_and_plot_trades(config)
 
+def start_plot_tv_dataframe(args: Dict[str, Any]) -> None:
+    """
+    Entrypoint for dataframe plotting
+    """
+    # Import here to avoid errors if plot-dependencies are not installed.
+    from freqtrade.plot.plotting import load_data_and_trades
+    validate_plot_args(args)
+    config = setup_utils_configuration(args, RunMode.PLOT)
+
+    load_data_and_trades(config)
 
 def start_plot_profit(args: Dict[str, Any]) -> None:
     """

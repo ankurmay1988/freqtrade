@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import pandas as pd
+from sqlalchemy import create_engine
 
 from freqtrade.configuration import TimeRange
 from freqtrade.data.btanalysis import (analyze_trade_parallelism, extract_trades_of_period,
@@ -665,6 +666,57 @@ def load_and_plot_trades(config: Dict[str, Any]):
 
     logger.info('End of plotting process. %s plots generated', pair_counter)
 
+def load_data_and_trades(config: Dict[str, Any]):
+    """
+    From configuration provided
+    - Initializes plot-script
+    - Get candle (OHLCV) data
+    - Generate Dafaframes populated with indicators and signals based on configured strategy
+    - Load trades executed during the selected period
+    - Generate files
+    :return: None
+    """
+    strategy = StrategyResolver.load_strategy(config)
+
+    exchange = ExchangeResolver.load_exchange(config['exchange']['name'], config)
+    IStrategy.dp = DataProvider(config, exchange)
+    strategy.bot_start()
+    strategy.bot_loop_start()
+    plot_elements = init_plotscript(config, list(exchange.markets), strategy.startup_candle_count)
+    timerange = plot_elements['timerange']
+    trades = plot_elements['trades']
+    pair_counter = 0
+    
+    for pair, data in plot_elements["ohlcv"].items():
+        pair_counter += 1
+        logger.info("analyse pair %s", pair)
+
+        df_analyzed = strategy.analyze_ticker(data, {'pair': pair})
+        df_analyzed = trim_dataframe(df_analyzed, timerange)
+        if not trades.empty:
+            trades_pair = trades.loc[trades['pair'] == pair]
+            trades_pair = extract_trades_of_period(df_analyzed, trades_pair)
+        else:
+            trades_pair = trades
+
+        pair_s = pair_to_filename(pair)
+        # filename = 'freqtrade-plot-' + pair_s + '-' + config['timeframe'] + '.json.zip'
+        # directory=config['user_data_dir'] / 'plot'
+        # directory.mkdir(parents=True, exist_ok=True)
+        # _filename = directory.joinpath(filename)
+        # df_analyzed.to_json(path_or_buf=_filename)
+        
+        directory=config['user_data_dir'] / 'plot'
+        directory.mkdir(parents=True, exist_ok=True)
+        filename = 'freqtrade-backtest-' + pair_s + '-' + config['timeframe'] + '.db'
+        dbpath = "sqlite:///" + str(directory.joinpath(filename))
+        db = create_engine(dbpath)
+        
+        trades_pair.to_sql(f"trades",con=db,if_exists='replace')
+        df_analyzed.to_sql(f"data",con=db,if_exists='replace')
+        db.dispose()
+
+    logger.info('End of plotting process. %s plots generated', pair_counter)
 
 def plot_profit(config: Dict[str, Any]) -> None:
     """

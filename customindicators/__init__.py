@@ -3,4 +3,5 @@ from customindicators.pivotpoint import PivotPoint
 from customindicators.DictObj import DictObj
 from customindicators.ElderSafeZone import ElderSafeZone
 from customindicators.WaveTrend import WaveTrendOscillator
+from customindicators.VolatilityOscillator import VolatilityOscillator
 from customindicators.DMI import DMI

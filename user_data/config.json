@@ -4,14 +4,13 @@
   "stake_amount": "unlimited",
   "tradable_balance_ratio": 1,
   "fiat_display_currency": "USD",
-  "dry_run": false,
+  "dry_run": true,
   "cancel_open_orders_on_exit": false,
   "unfilledtimeout": {
     "buy": 10,
     "sell": 30,
     "unit": "minutes"
   },
-  "stoploss": -0.02,
   "order_types": {
     "buy": "market",
     "sell": "market",
@@ -50,11 +49,15 @@
       "ETH/USDT",
       "BTC/USDT",
       "ADA/USDT",
-      "LINK/USDT",
+      "DOT/USDT",
+      "ICP/USDT",
+      "1INCH/USDT",
+      "EOS/USDT",
+      "AR/USDT",
       "ATOM/USDT",
-      "MATIC/USDT",
+      "IOTA/USDT",
       "ALGO/USDT",
-      "LUNA/USDT"
+      "AXS/USDT"
     ],
     "pair_blacklist": [
       "BNB/BTC",
